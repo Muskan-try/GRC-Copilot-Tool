@@ -1,0 +1,961 @@
+[{
+  "_id": {
+    "$oid": "69d744b47c9d15a319a91c11"
+  },
+  "ISO27001": {
+    "basic": [
+      {
+        "id": "ISO-B-1",
+        "question": "Do you have an approved Information Security Policy?",
+        "category": "Governance",
+        "weight": 10,
+        "control_id": "A.5.1",
+        "risk_if_no": "High",
+        "recommendation": "Define and approve an Information Security Policy"
+      },
+      {
+        "id": "ISO-B-2",
+        "question": "Are information security roles defined?",
+        "category": "Governance",
+        "weight": 8,
+        "control_id": "A.5.2",
+        "risk_if_no": "High",
+        "recommendation": "Assign security roles and responsibilities"
+      },
+      {
+        "id": "ISO-B-3",
+        "question": "Is an asset inventory maintained?",
+        "category": "Asset Management",
+        "weight": 9,
+        "control_id": "A.5.9",
+        "risk_if_no": "High",
+        "recommendation": "Maintain asset register"
+      },
+      {
+        "id": "ISO-B-4",
+        "question": "Are acceptable use policies defined?",
+        "category": "Governance",
+        "weight": 7,
+        "control_id": "A.5.10",
+        "risk_if_no": "Medium",
+        "recommendation": "Define acceptable use policy"
+      },
+      {
+        "id": "ISO-B-5",
+        "question": "Are user accounts uniquely assigned?",
+        "category": "Access Control",
+        "weight": 8,
+        "control_id": "A.9.2",
+        "risk_if_no": "High",
+        "recommendation": "Ensure unique user IDs"
+      },
+      {
+        "id": "ISO-B-6",
+        "question": "Are passwords configured with minimum complexity?",
+        "category": "Access Control",
+        "weight": 7,
+        "control_id": "A.9.4",
+        "risk_if_no": "Medium",
+        "recommendation": "Enforce strong password policy"
+      },
+      {
+        "id": "ISO-B-7",
+        "question": "Are endpoints protected with antivirus?",
+        "category": "Operations Security",
+        "weight": 6,
+        "control_id": "A.12.2",
+        "risk_if_no": "Medium",
+        "recommendation": "Deploy endpoint protection"
+      },
+      {
+        "id": "ISO-B-8",
+        "question": "Are backups taken regularly?",
+        "category": "Business Continuity",
+        "weight": 9,
+        "control_id": "A.12.3",
+        "risk_if_no": "High",
+        "recommendation": "Implement backup procedures"
+      },
+      {
+        "id": "ISO-B-9",
+        "question": "Is physical access to servers restricted?",
+        "category": "Physical Security",
+        "weight": 8,
+        "control_id": "A.11.1",
+        "risk_if_no": "High",
+        "recommendation": "Restrict physical access"
+      },
+      {
+        "id": "ISO-B-10",
+        "question": "Are employees trained on security awareness?",
+        "category": "Human Security",
+        "weight": 7,
+        "control_id": "A.6.3",
+        "risk_if_no": "Medium",
+        "recommendation": "Conduct awareness training"
+      },
+      {
+        "id": "ISO-B-11",
+        "question": "Are removable media controls implemented?",
+        "category": "Operations Security",
+        "weight": 6,
+        "control_id": "A.8.3",
+        "risk_if_no": "Medium",
+        "recommendation": "Control removable media usage"
+      },
+      {
+        "id": "ISO-B-12",
+        "question": "Are default passwords changed?",
+        "category": "Access Control",
+        "weight": 8,
+        "control_id": "A.9.4",
+        "risk_if_no": "High",
+        "recommendation": "Remove default credentials"
+      },
+      {
+        "id": "ISO-B-13",
+        "question": "Is data classified?",
+        "category": "Data Classification",
+        "weight": 8,
+        "control_id": "A.5.12",
+        "risk_if_no": "Medium",
+        "recommendation": "Classify data"
+      },
+      {
+        "id": "ISO-B-14",
+        "question": "Are logs generated for key systems?",
+        "category": "Monitoring",
+        "weight": 7,
+        "control_id": "A.12.4",
+        "risk_if_no": "Medium",
+        "recommendation": "Enable logging"
+      },
+      {
+        "id": "ISO-B-15",
+        "question": "Is internet usage monitored?",
+        "category": "Monitoring",
+        "weight": 6,
+        "control_id": "A.12.4",
+        "risk_if_no": "Medium",
+        "recommendation": "Monitor usage"
+      }
+    ],
+    "intermediate": [
+      {
+        "id": "ISO-I-1",
+        "question": "Are risk assessments conducted periodically?",
+        "category": "Risk Management",
+        "weight": 9,
+        "control_id": "A.6.1",
+        "risk_if_no": "High",
+        "recommendation": "Perform risk assessments"
+      },
+      {
+        "id": "ISO-I-2",
+        "question": "Is encryption used for sensitive data?",
+        "category": "Cryptography",
+        "weight": 9,
+        "control_id": "A.10.1",
+        "risk_if_no": "High",
+        "recommendation": "Encrypt sensitive data"
+      },
+      {
+        "id": "ISO-I-3",
+        "question": "Is access reviewed periodically?",
+        "category": "Access Control",
+        "weight": 8,
+        "control_id": "A.9.2",
+        "risk_if_no": "High",
+        "recommendation": "Review access rights"
+      },
+      {
+        "id": "ISO-I-4",
+        "question": "Are incident response procedures defined?",
+        "category": "Incident Response",
+        "weight": 9,
+        "control_id": "A.16.1",
+        "risk_if_no": "High",
+        "recommendation": "Define IR plan"
+      },
+      {
+        "id": "ISO-I-5",
+        "question": "Are vendors assessed for risk?",
+        "category": "Supplier Security",
+        "weight": 8,
+        "control_id": "A.15.1",
+        "risk_if_no": "High",
+        "recommendation": "Assess vendors"
+      },
+      {
+        "id": "ISO-I-6",
+        "question": "Is multi-factor authentication implemented?",
+        "category": "Access Control",
+        "weight": 9,
+        "control_id": "A.9.4",
+        "risk_if_no": "High",
+        "recommendation": "Enable MFA"
+      },
+      {
+        "id": "ISO-I-7",
+        "question": "Are vulnerabilities scanned regularly?",
+        "category": "Vulnerability Management",
+        "weight": 8,
+        "control_id": "A.12.6",
+        "risk_if_no": "High",
+        "recommendation": "Perform scans"
+      },
+      {
+        "id": "ISO-I-8",
+        "question": "Is patch management in place?",
+        "category": "Operations Security",
+        "weight": 8,
+        "control_id": "A.12.6",
+        "risk_if_no": "High",
+        "recommendation": "Apply patches"
+      },
+      {
+        "id": "ISO-I-9",
+        "question": "Are logs monitored actively?",
+        "category": "Monitoring",
+        "weight": 8,
+        "control_id": "A.12.4",
+        "risk_if_no": "High",
+        "recommendation": "Monitor logs"
+      },
+      {
+        "id": "ISO-I-10",
+        "question": "Is network segmentation implemented?",
+        "category": "Network Security",
+        "weight": 8,
+        "control_id": "A.13.1",
+        "risk_if_no": "High",
+        "recommendation": "Segment network"
+      },
+      {
+        "id": "ISO-I-11",
+        "question": "Are backup restorations tested?",
+        "category": "Business Continuity",
+        "weight": 9,
+        "control_id": "A.12.3",
+        "risk_if_no": "High",
+        "recommendation": "Test backups"
+      },
+      {
+        "id": "ISO-I-12",
+        "question": "Is secure configuration enforced?",
+        "category": "Configuration",
+        "weight": 7,
+        "control_id": "A.12.5",
+        "risk_if_no": "Medium",
+        "recommendation": "Harden systems"
+      },
+      {
+        "id": "ISO-I-13",
+        "question": "Are access logs retained?",
+        "category": "Monitoring",
+        "weight": 7,
+        "control_id": "A.12.4",
+        "risk_if_no": "Medium",
+        "recommendation": "Retain logs"
+      },
+      {
+        "id": "ISO-I-14",
+        "question": "Are privileged accounts controlled?",
+        "category": "Access Control",
+        "weight": 9,
+        "control_id": "A.9.2",
+        "risk_if_no": "High",
+        "recommendation": "Restrict privileged access"
+      },
+      {
+        "id": "ISO-I-15",
+        "question": "Is remote access secured?",
+        "category": "Network Security",
+        "weight": 8,
+        "control_id": "A.13.2",
+        "risk_if_no": "High",
+        "recommendation": "Secure remote access"
+      }
+    ],
+    "advanced": [
+      {
+        "id": "ISO-A-1",
+        "question": "Is a SOC implemented?",
+        "category": "Monitoring",
+        "weight": 10,
+        "control_id": "A.16.1",
+        "risk_if_no": "Critical",
+        "recommendation": "Implement SOC"
+      },
+      {
+        "id": "ISO-A-2",
+        "question": "Is threat intelligence integrated?",
+        "category": "Threat Management",
+        "weight": 9,
+        "control_id": "A.16.1",
+        "risk_if_no": "High",
+        "recommendation": "Use threat intel"
+      },
+      {
+        "id": "ISO-A-3",
+        "question": "Is penetration testing performed?",
+        "category": "Testing",
+        "weight": 9,
+        "control_id": "A.12.6",
+        "risk_if_no": "High",
+        "recommendation": "Perform pentesting"
+      },
+      {
+        "id": "ISO-A-4",
+        "question": "Is SIEM implemented?",
+        "category": "Monitoring",
+        "weight": 10,
+        "control_id": "A.12.4",
+        "risk_if_no": "Critical",
+        "recommendation": "Deploy SIEM"
+      },
+      {
+        "id": "ISO-A-5",
+        "question": "Is Zero Trust implemented?",
+        "category": "Architecture",
+        "weight": 10,
+        "control_id": "A.13.1",
+        "risk_if_no": "Critical",
+        "recommendation": "Adopt Zero Trust"
+      },
+      {
+        "id": "ISO-A-6",
+        "question": "Is DLP implemented?",
+        "category": "Data Protection",
+        "weight": 9,
+        "control_id": "A.8.2",
+        "risk_if_no": "High",
+        "recommendation": "Implement DLP"
+      },
+      {
+        "id": "ISO-A-7",
+        "question": "Are red team exercises conducted?",
+        "category": "Testing",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Conduct red team exercises"
+      },
+      {
+        "id": "ISO-A-8",
+        "question": "Is continuous compliance monitoring used?",
+        "category": "Compliance",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Automate compliance"
+      },
+      {
+        "id": "ISO-A-9",
+        "question": "Is identity federation implemented?",
+        "category": "IAM",
+        "weight": 8,
+        "risk_if_no": "Medium",
+        "recommendation": "Implement federation"
+      },
+      {
+        "id": "ISO-A-10",
+        "question": "Is privileged session monitoring done?",
+        "category": "Access Control",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Monitor sessions"
+      }
+    ]
+  },
+  "NIST": {
+    "basic": [
+      {
+        "id": "NIST-B-1",
+        "question": "Do you identify critical assets?",
+        "category": "Identify",
+        "weight": 8,
+        "risk_if_no": "High",
+        "recommendation": "Maintain asset inventory"
+      },
+      {
+        "id": "NIST-B-2",
+        "question": "Are business environments documented?",
+        "category": "Identify",
+        "weight": 7,
+        "risk_if_no": "Medium",
+        "recommendation": "Document environment"
+      },
+      {
+        "id": "NIST-B-3",
+        "question": "Are risks identified?",
+        "category": "Identify",
+        "weight": 8,
+        "risk_if_no": "High",
+        "recommendation": "Identify risks"
+      },
+      {
+        "id": "NIST-B-4",
+        "question": "Are access permissions managed?",
+        "category": "Protect",
+        "weight": 8,
+        "risk_if_no": "High",
+        "recommendation": "Manage permissions"
+      },
+      {
+        "id": "NIST-B-5",
+        "question": "Is data protected?",
+        "category": "Protect",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Protect data"
+      },
+      {
+        "id": "NIST-B-6",
+        "question": "Is awareness training provided?",
+        "category": "Protect",
+        "weight": 7,
+        "risk_if_no": "Medium",
+        "recommendation": "Train staff"
+      },
+      {
+        "id": "NIST-B-7",
+        "question": "Are anomalies detected?",
+        "category": "Detect",
+        "weight": 8,
+        "risk_if_no": "High",
+        "recommendation": "Enable detection"
+      },
+      {
+        "id": "NIST-B-8",
+        "question": "Are events logged?",
+        "category": "Detect",
+        "weight": 7,
+        "risk_if_no": "Medium",
+        "recommendation": "Enable logs"
+      },
+      {
+        "id": "NIST-B-9",
+        "question": "Is response planning done?",
+        "category": "Respond",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Define response"
+      },
+      {
+        "id": "NIST-B-10",
+        "question": "Is recovery planning done?",
+        "category": "Recover",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Plan recovery"
+      }
+    ],
+    "intermediate": [
+      {
+        "id": "NIST-I-1",
+        "question": "Are protective technologies used?",
+        "category": "Protect",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Deploy tools"
+      },
+      {
+        "id": "NIST-I-2",
+        "question": "Is anomaly detection automated?",
+        "category": "Detect",
+        "weight": 8,
+        "risk_if_no": "High",
+        "recommendation": "Automate detection"
+      },
+      {
+        "id": "NIST-I-3",
+        "question": "Is incident response tested?",
+        "category": "Respond",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Test IR"
+      },
+      {
+        "id": "NIST-I-4",
+        "question": "Is threat intelligence used?",
+        "category": "Detect",
+        "weight": 8,
+        "risk_if_no": "High",
+        "recommendation": "Use threat intel"
+      },
+      {
+        "id": "NIST-I-5",
+        "question": "Are logs centralized?",
+        "category": "Detect",
+        "weight": 8,
+        "risk_if_no": "High",
+        "recommendation": "Centralize logs"
+      },
+      {
+        "id": "NIST-I-6",
+        "question": "Is network protected?",
+        "category": "Protect",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Secure network"
+      },
+      {
+        "id": "NIST-I-7",
+        "question": "Are vulnerabilities managed?",
+        "category": "Protect",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Fix vulnerabilities"
+      },
+      {
+        "id": "NIST-I-8",
+        "question": "Is response automated?",
+        "category": "Respond",
+        "weight": 8,
+        "risk_if_no": "High",
+        "recommendation": "Automate response"
+      },
+      {
+        "id": "NIST-I-9",
+        "question": "Are recovery improvements implemented?",
+        "category": "Recover",
+        "weight": 8,
+        "risk_if_no": "High",
+        "recommendation": "Improve recovery"
+      },
+      {
+        "id": "NIST-I-10",
+        "question": "Are backup systems resilient?",
+        "category": "Recover",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Ensure resilience"
+      }
+    ],
+    "advanced": [
+      {
+        "id": "NIST-A-1",
+        "question": "Is SOAR implemented?",
+        "category": "Respond",
+        "weight": 10,
+        "risk_if_no": "Critical",
+        "recommendation": "Deploy SOAR"
+      },
+      {
+        "id": "NIST-A-2",
+        "question": "Is AI used in detection?",
+        "category": "Detect",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Use AI detection"
+      },
+      {
+        "id": "NIST-A-3",
+        "question": "Is threat hunting conducted?",
+        "category": "Detect",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Conduct hunting"
+      },
+      {
+        "id": "NIST-A-4",
+        "question": "Is cyber resilience strategy defined?",
+        "category": "Recover",
+        "weight": 10,
+        "risk_if_no": "Critical",
+        "recommendation": "Define resilience"
+      },
+      {
+        "id": "NIST-A-5",
+        "question": "Is supply chain risk managed?",
+        "category": "Identify",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Manage supply chain"
+      },
+      {
+        "id": "NIST-A-6",
+        "question": "Is zero trust used?",
+        "category": "Protect",
+        "weight": 10,
+        "risk_if_no": "Critical",
+        "recommendation": "Adopt zero trust"
+      },
+      {
+        "id": "NIST-A-7",
+        "question": "Is continuous monitoring active?",
+        "category": "Detect",
+        "weight": 10,
+        "risk_if_no": "Critical",
+        "recommendation": "Enable monitoring"
+      },
+      {
+        "id": "NIST-A-8",
+        "question": "Are attack simulations run?",
+        "category": "Test",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Simulate attacks"
+      },
+      {
+        "id": "NIST-A-9",
+        "question": "Is incident response orchestration used?",
+        "category": "Respond",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Orchestrate IR"
+      },
+      {
+        "id": "NIST-A-10",
+        "question": "Is recovery automated?",
+        "category": "Recover",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Automate recovery"
+      }
+    ]
+  },
+  "GDPR": {
+    "basic": [
+      {
+        "id": "GDPR-B-1",
+        "question": "Is personal data processed lawfully?",
+        "category": "Compliance",
+        "weight": 10,
+        "risk_if_no": "Critical",
+        "recommendation": "Ensure lawful processing"
+      },
+      {
+        "id": "GDPR-B-2",
+        "question": "Is consent obtained clearly?",
+        "category": "Consent",
+        "weight": 10,
+        "risk_if_no": "Critical",
+        "recommendation": "Collect valid consent"
+      },
+      {
+        "id": "GDPR-B-3",
+        "question": "Is data minimization followed?",
+        "category": "Principles",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Minimize data"
+      },
+      {
+        "id": "GDPR-B-4",
+        "question": "Is data accuracy maintained?",
+        "category": "Principles",
+        "weight": 8,
+        "risk_if_no": "High",
+        "recommendation": "Maintain accuracy"
+      },
+      {
+        "id": "GDPR-B-5",
+        "question": "Is storage limitation applied?",
+        "category": "Principles",
+        "weight": 8,
+        "risk_if_no": "High",
+        "recommendation": "Limit retention"
+      }
+    ],
+    "intermediate": [
+      {
+        "id": "GDPR-I-1",
+        "question": "Can users access their data?",
+        "category": "Rights",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Enable access rights"
+      },
+      {
+        "id": "GDPR-I-2",
+        "question": "Can users delete their data?",
+        "category": "Rights",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Enable deletion"
+      },
+      {
+        "id": "GDPR-I-3",
+        "question": "Is data portability supported?",
+        "category": "Rights",
+        "weight": 8,
+        "risk_if_no": "High",
+        "recommendation": "Support portability"
+      },
+      {
+        "id": "GDPR-I-4",
+        "question": "Is DPO appointed?",
+        "category": "Governance",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Appoint DPO"
+      },
+      {
+        "id": "GDPR-I-5",
+        "question": "Are processors managed?",
+        "category": "Third Party",
+        "weight": 8,
+        "risk_if_no": "High",
+        "recommendation": "Manage processors"
+      }
+    ],
+    "advanced": [
+      {
+        "id": "GDPR-A-1",
+        "question": "Is DPIA conducted?",
+        "category": "Risk",
+        "weight": 10,
+        "risk_if_no": "Critical",
+        "recommendation": "Conduct DPIA"
+      },
+      {
+        "id": "GDPR-A-2",
+        "question": "Are breaches reported timely?",
+        "category": "Incident",
+        "weight": 10,
+        "risk_if_no": "Critical",
+        "recommendation": "Report breaches"
+      },
+      {
+        "id": "GDPR-A-3",
+        "question": "Is privacy by design implemented?",
+        "category": "Design",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Implement privacy by design"
+      },
+      {
+        "id": "GDPR-A-4",
+        "question": "Is pseudonymization used?",
+        "category": "Security",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Use pseudonymization"
+      },
+      {
+        "id": "GDPR-A-5",
+        "question": "Is encryption applied to personal data?",
+        "category": "Security",
+        "weight": 10,
+        "risk_if_no": "Critical",
+        "recommendation": "Encrypt personal data"
+      }
+    ]
+  },
+  "DPDPA": {
+    "basic": [
+      {
+        "id": "DPDPA-B-1",
+        "question": "Is user consent obtained?",
+        "category": "Consent",
+        "weight": 10,
+        "risk_if_no": "Critical",
+        "recommendation": "Obtain consent"
+      },
+      {
+        "id": "DPDPA-B-2",
+        "question": "Is purpose of data collection defined?",
+        "category": "Consent",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Define purpose"
+      },
+      {
+        "id": "DPDPA-B-3",
+        "question": "Is data limited to purpose?",
+        "category": "Principle",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Limit usage"
+      }
+    ],
+    "intermediate": [
+      {
+        "id": "DPDPA-I-1",
+        "question": "Can users withdraw consent?",
+        "category": "Rights",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Allow withdrawal"
+      },
+      {
+        "id": "DPDPA-I-2",
+        "question": "Are data fiduciaries identified?",
+        "category": "Governance",
+        "weight": 8,
+        "risk_if_no": "High",
+        "recommendation": "Define fiduciaries"
+      },
+      {
+        "id": "DPDPA-I-3",
+        "question": "Is grievance redressal available?",
+        "category": "Rights",
+        "weight": 8,
+        "risk_if_no": "High",
+        "recommendation": "Provide grievance system"
+      }
+    ],
+    "advanced": [
+      {
+        "id": "DPDPA-A-1",
+        "question": "Are breaches reported to authority?",
+        "category": "Incident",
+        "weight": 10,
+        "risk_if_no": "Critical",
+        "recommendation": "Report breaches"
+      },
+      {
+        "id": "DPDPA-A-2",
+        "question": "Is data localization followed?",
+        "category": "Compliance",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Ensure localization"
+      },
+      {
+        "id": "DPDPA-A-3",
+        "question": "Are audits conducted?",
+        "category": "Audit",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Conduct audits"
+      },
+      {
+        "id": "DPDPA-A-4",
+        "question": "Is children's data protected?",
+        "category": "Protection",
+        "weight": 10,
+        "risk_if_no": "Critical",
+        "recommendation": "Protect minors data"
+      }
+    ]
+  },
+  "HIPAA": {
+    "basic": [
+      {
+        "id": "HIPAA-B-1",
+        "question": "Is PHI protected?",
+        "category": "Security",
+        "weight": 10,
+        "risk_if_no": "Critical",
+        "recommendation": "Secure PHI"
+      },
+      {
+        "id": "HIPAA-B-2",
+        "question": "Are access controls applied?",
+        "category": "Access",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Restrict access"
+      },
+      {
+        "id": "HIPAA-B-3",
+        "question": "Are workforce trained?",
+        "category": "Training",
+        "weight": 8,
+        "risk_if_no": "High",
+        "recommendation": "Train staff"
+      },
+      {
+        "id": "HIPAA-B-4",
+        "question": "Is data integrity ensured?",
+        "category": "Integrity",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Ensure integrity"
+      },
+      {
+        "id": "HIPAA-B-5",
+        "question": "Are backups maintained?",
+        "category": "Availability",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Maintain backups"
+      }
+    ],
+    "intermediate": [
+      {
+        "id": "HIPAA-I-1",
+        "question": "Is PHI encrypted?",
+        "category": "Security",
+        "weight": 10,
+        "risk_if_no": "Critical",
+        "recommendation": "Encrypt PHI"
+      },
+      {
+        "id": "HIPAA-I-2",
+        "question": "Are audit logs maintained?",
+        "category": "Audit",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Enable logs"
+      },
+      {
+        "id": "HIPAA-I-3",
+        "question": "Is access monitored?",
+        "category": "Monitoring",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Monitor access"
+      },
+      {
+        "id": "HIPAA-I-4",
+        "question": "Are incident procedures defined?",
+        "category": "Incident",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Define IR"
+      },
+      {
+        "id": "HIPAA-I-5",
+        "question": "Is vendor compliance ensured?",
+        "category": "Third Party",
+        "weight": 8,
+        "risk_if_no": "High",
+        "recommendation": "Ensure vendor compliance"
+      }
+    ],
+    "advanced": [
+      {
+        "id": "HIPAA-A-1",
+        "question": "Is risk analysis conducted?",
+        "category": "Risk",
+        "weight": 10,
+        "risk_if_no": "Critical",
+        "recommendation": "Conduct risk analysis"
+      },
+      {
+        "id": "HIPAA-A-2",
+        "question": "Is security monitoring continuous?",
+        "category": "Monitoring",
+        "weight": 10,
+        "risk_if_no": "Critical",
+        "recommendation": "Continuous monitoring"
+      },
+      {
+        "id": "HIPAA-A-3",
+        "question": "Is breach notification timely?",
+        "category": "Incident",
+        "weight": 10,
+        "risk_if_no": "Critical",
+        "recommendation": "Notify breaches"
+      },
+      {
+        "id": "HIPAA-A-4",
+        "question": "Is disaster recovery tested?",
+        "category": "Recovery",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Test DR"
+      },
+      {
+        "id": "HIPAA-A-5",
+        "question": "Is compliance audited regularly?",
+        "category": "Audit",
+        "weight": 9,
+        "risk_if_no": "High",
+        "recommendation": "Conduct audits"
+      }
+    ]
+  }
+}]

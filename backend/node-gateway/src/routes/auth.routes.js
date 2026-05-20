@@ -1,0 +1,231 @@
+const express = require('express');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { body, validationResult } = require('express-validator');
+const { query } = require('../config/postgres');
+const { authenticate } = require('../middleware/auth');
+const logger = require('../config/logger');
+
+const router = express.Router();
+
+// ─── POST /api/auth/register ───────────────────────────────────────────────
+router.post(
+  '/register',
+  [
+    body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
+    body('password')
+      .isLength({ min: 8 })
+      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+      .withMessage('Password must be 8+ chars with uppercase, lowercase, and number'),
+    body('org_name').trim().notEmpty().withMessage('Organization name required'),
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+      }
+
+      const { email, password, org_name } = req.body;
+
+      // Check if email already exists
+      const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
+      if (existing.rows.length) {
+        return res.status(409).json({ error: 'Email already registered.' });
+      }
+
+      // Hash password
+      const salt = await bcrypt.genSalt(12);
+      const password_hash = await bcrypt.hash(password, salt);
+
+      // Insert user
+      const userResult = await query(
+        `INSERT INTO users (email, password_hash, role)
+         VALUES ($1, $2, 'user')
+         RETURNING id, email, role, created_at`,
+        [email, password_hash]
+      );
+      const user = userResult.rows[0];
+
+      // Create initial organization record
+      const orgResult = await query(
+        `INSERT INTO organizations (user_id, name)
+         VALUES ($1, $2)
+         RETURNING id, name`,
+        [user.id, org_name]
+      );
+
+      // Issue JWT
+      const token = jwt.sign(
+        { user_id: user.id, email: user.email, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: parseInt(process.env.JWT_EXPIRES_IN) || 86400 }
+      );
+
+      logger.info(`New user registered: ${email}`);
+      res.status(201).json({
+        user_id: user.id,
+        email: user.email,
+        role: user.role,
+        org_id: orgResult.rows[0].id,
+        token,
+        expires_in: parseInt(process.env.JWT_EXPIRES_IN) || 86400,
+        created_at: user.created_at,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ─── POST /api/auth/login ──────────────────────────────────────────────────
+router.post(
+  '/login',
+  [
+    body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
+    body('password').notEmpty().withMessage('Password required'),
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+      }
+
+      const { email, password } = req.body;
+
+      const result = await query(
+        'SELECT id, email, password_hash, role, is_active FROM users WHERE email = $1',
+        [email]
+      );
+
+      if (!result.rows.length) {
+        return res.status(401).json({ error: 'Invalid email or password.' });
+      }
+
+      const user = result.rows[0];
+
+      if (!user.is_active) {
+        return res.status(403).json({ error: 'Account has been deactivated.' });
+      }
+
+      const passwordMatch = await bcrypt.compare(password, user.password_hash);
+      if (!passwordMatch) {
+        return res.status(401).json({ error: 'Invalid email or password.' });
+      }
+
+      // Get organization info
+      const orgResult = await query(
+        'SELECT id, name FROM organizations WHERE user_id = $1 ORDER BY created_at LIMIT 1',
+        [user.id]
+      );
+
+      const token = jwt.sign(
+        { user_id: user.id, email: user.email, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: parseInt(process.env.JWT_EXPIRES_IN) || 86400 }
+      );
+
+      logger.info(`User logged in: ${email}`);
+      res.json({
+        token,
+        user_id: user.id,
+        email: user.email,
+        role: user.role,
+        org_id: orgResult.rows[0]?.id || null,
+        org_name: orgResult.rows[0]?.name || null,
+        expires_in: parseInt(process.env.JWT_EXPIRES_IN) || 86400,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// ─── GET /api/auth/profile ─────────────────────────────────────────────────
+router.get('/profile', authenticate, async (req, res, next) => {
+  try {
+    const result = await query(
+      `SELECT u.id, u.email, u.role, u.created_at,
+              o.id AS org_id, o.name AS org_name, o.industry, o.region,
+              o.frameworks, o.analysis_depth
+       FROM users u
+       LEFT JOIN organizations o ON o.user_id = u.id
+       WHERE u.id = $1
+       ORDER BY o.created_at LIMIT 1`,
+      [req.user.user_id]
+    );
+
+    if (!result.rows.length) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    // Count total assessments
+    const assessCount = await query(
+      'SELECT COUNT(*) FROM assessments WHERE user_id = $1',
+      [req.user.user_id]
+    );
+
+    const row = result.rows[0];
+    res.json({
+      user_id: row.id,
+      email: row.email,
+      role: row.role,
+      created_at: row.created_at,
+      organization: row.org_id ? {
+        org_id: row.org_id,
+        name: row.org_name,
+        industry: row.industry,
+        region: row.region,
+        frameworks: row.frameworks,
+        analysis_depth: row.analysis_depth,
+      } : null,
+      total_assessments: parseInt(assessCount.rows[0].count),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─── PUT /api/auth/change-password ────────────────────────────────────────
+router.put(
+  '/change-password',
+  authenticate,
+  [
+    body('current_password').notEmpty().withMessage('Current password required'),
+    body('new_password')
+      .isLength({ min: 8 })
+      .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
+      .withMessage('New password must be 8+ chars with uppercase, lowercase, and number'),
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+      }
+
+      const { current_password, new_password } = req.body;
+
+      const result = await query('SELECT password_hash FROM users WHERE id = $1', [req.user.user_id]);
+      const match = await bcrypt.compare(current_password, result.rows[0].password_hash);
+      if (!match) {
+        return res.status(401).json({ error: 'Current password is incorrect.' });
+      }
+
+      const salt = await bcrypt.genSalt(12);
+      const new_hash = await bcrypt.hash(new_password, salt);
+
+      await query(
+        'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
+        [new_hash, req.user.user_id]
+      );
+
+      res.json({ message: 'Password changed successfully.' });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+module.exports = router;

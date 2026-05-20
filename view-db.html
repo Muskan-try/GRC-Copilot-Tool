@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GRC Database Viewer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 20px; }
+    .container { max-width: 1400px; margin: 0 auto; }
+    h1 { color: #333; margin-bottom: 20px; padding: 20px; background: #2563eb; color: white; border-radius: 8px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px; }
+    .stat-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .stat-card h3 { color: #666; font-size: 14px; margin-bottom: 10px; }
+    .stat-card .number { font-size: 32px; font-weight: bold; color: #2563eb; }
+    .section { background: white; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .section-header { padding: 15px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+    .section-header h2 { color: #333; font-size: 18px; }
+    .section-header button { background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+    .section-header button:hover { background: #1d4ed8; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; }
+    th { background: #f9fafb; color: #666; font-weight: 600; font-size: 13px; text-transform: uppercase; }
+    tr:hover { background: #f9fafb; }
+    .tag { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+    .tag-success { background: #d1fae5; color: #065f46; }
+    .tag-warning { background: #fef3c7; color: #92400e; }
+    .tag-info { background: #dbeafe; color: #1e40af; }
+    .tag-gray { background: #f3f4f6; color: #374151; }
+    .empty { padding: 40px; text-align: center; color: #999; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .tab { padding: 10px 20px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; }
+    .tab.active { background: #2563eb; color: white; border-color: #2563eb; }
+    .content { display: none; }
+    .content.active { display: block; }
+    .loading { text-align: center; padding: 40px; color: #666; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>📊 GRC Copilot Database Viewer</h1>
+    
+    <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+      <button onclick="loadData()" style="background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600;">🔄 Refresh Data</button>
+      <span id="last-updated" style="color: #666; align-self: center; font-size: 13px;"></span>
+    </div>
+    
+    <div id="loading" class="loading">Loading database...</div>
+    
+    <div id="app" style="display: none;">
+      <div class="tabs">
+        <button class="tab active" onclick="showTab('postgresql')">PostgreSQL</button>
+        <button class="tab" onclick="showTab('mongodb')">MongoDB</button>
+      </div>
+
+      <div id="postgresql" class="content active">
+        <div class="stats" id="pg-stats"></div>
+        <div id="pg-tables"></div>
+      </div>
+
+      <div id="mongodb" class="content">
+        <div class="stats" id="mongo-stats"></div>
+        <div id="mongo-collections"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function loadData() {
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('last-updated').textContent = 'Refreshing...';
+      
+      fetch('/api/database')
+        .then(response => response.json())
+        .then(data => {
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('app').style.display = 'block';
+          
+          const now = new Date().toLocaleTimeString();
+          document.getElementById('last-updated').textContent = `Last updated: ${now}`;
+          
+          renderPostgreSQL(data.postgresql);
+          renderMongoDB(data.mongodb);
+        })
+        .catch(err => {
+          document.getElementById('loading').innerHTML = 'Error loading data. Make sure the backend is running.';
+          console.error(err);
+        });
+    }
+
+    function renderPostgreSQL(data) {
+      const stats = document.getElementById('pg-stats');
+      const tables = document.getElementById('pg-tables');
+      
+      let statsHtml = '';
+      let tablesHtml = '';
+      
+      for (const [table, info] of Object.entries(data)) {
+        statsHtml += `
+          <div class="stat-card">
+            <h3>${table}</h3>
+            <div class="number">${info.total_rows}</div>
+          </div>
+        `;
+        
+        tablesHtml += `
+          <div class="section">
+            <div class="section-header">
+              <h2>${table}</h2>
+              <button onclick="toggleTable('${table}')">Show/Hide</button>
+            </div>
+            <div id="table-${table}" style="display: block;">
+              ${renderTable(info.sample, info.total_rows)}
+            </div>
+          </div>
+        `;
+      }
+      
+      stats.innerHTML = statsHtml;
+      tables.innerHTML = tablesHtml;
+    }
+
+    function renderMongoDB(data) {
+      const stats = document.getElementById('mongo-stats');
+      const collections = document.getElementById('mongo-collections');
+      
+      let statsHtml = '';
+      let collectionsHtml = '';
+      
+      for (const [collection, info] of Object.entries(data)) {
+        statsHtml += `
+          <div class="stat-card">
+            <h3>${collection}</h3>
+            <div class="number">${info.total_docs}</div>
+          </div>
+        `;
+        
+        collectionsHtml += `
+          <div class="section">
+            <div class="section-header">
+              <h2>${collection}</h2>
+              <button onclick="toggleTable('${collection}')">Show/Hide</button>
+            </div>
+            <div id="table-${collection}" style="display: block;">
+              ${renderTable(info.sample, info.total_docs)}
+            </div>
+          </div>
+        `;
+      }
+      
+      stats.innerHTML = statsHtml;
+      collections.innerHTML = collectionsHtml;
+    }
+
+    function renderTable(rows, total) {
+      if (!rows || rows.length === 0) {
+        return '<div class="empty">No data</div>';
+      }
+      
+      const columns = Object.keys(rows[0]);
+      let html = `<table><thead><tr>`;
+      
+      columns.forEach(col => {
+        html += `<th>${col}</th>`;
+      });
+      
+      html += `</tr></thead><tbody>`;
+      
+      rows.forEach(row => {
+        html += `<tr>`;
+        columns.forEach(col => {
+          let value = row[col];
+          if (value === null) value = '<span class="tag tag-gray">NULL</span>';
+          else if (value === true) value = '<span class="tag tag-success">Yes</span>';
+          else if (value === false) value = '<span class="tag tag-gray">No</span>';
+          else if (typeof value === 'object') value = `<code>${JSON.stringify(value).slice(0, 50)}...</code>`;
+          else if (value.toString().length > 100) value = value.toString().slice(0, 100) + '...';
+          html += `<td>${value}</td>`;
+        });
+        html += `</tr>`;
+      });
+      
+      html += `</tbody></table>`;
+      html += `<div style="padding: 10px; color: #666; font-size: 13px;">Showing ${rows.length} of ${total} rows</div>`;
+      
+      return html;
+    }
+
+    function toggleTable(id) {
+      const el = document.getElementById(`table-${id}`);
+      el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function showTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+      document.querySelector(`.tab[onclick="showTab('${tab}')"]`).classList.add('active');
+      document.getElementById(tab).classList.add('active');
+    }
+
+    loadData();
+  </script>
+</body>
+</html>

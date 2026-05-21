@@ -2,6 +2,7 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from typing import Optional, List, Dict
 from loguru import logger
 import uuid
+import hashlib
 
 from app.modules.compliance_agent.agent import agent
 
@@ -9,6 +10,8 @@ router = APIRouter()
 
 # In-memory store for reports (for demo purposes)
 reports_db: Dict[str, Dict] = {}
+# Content-hash → report cache: same file always returns the same result
+content_hash_cache: Dict[str, Dict] = {}
 
 @router.post("/upload-policy")
 async def upload_policy(file: UploadFile = File(...)):
@@ -32,16 +35,31 @@ async def run_agent(file: UploadFile = File(...)):
     """Runs the Compliance Mapping Agent on the uploaded policy."""
     try:
         content = await file.read()
+        content_hash = hashlib.sha256(content).hexdigest()
+
+        # Return cached result if the exact same file was already processed
+        if content_hash in content_hash_cache:
+            cached = content_hash_cache[content_hash]
+            logger.info(f"Cache hit for {file.filename} (hash: {content_hash[:12]}...)")
+            cached["cached"] = True
+            return cached
+
         report = await agent.run_assessment(content, file.filename)
         
         # Save report to "database"
         report_id = str(uuid.uuid4())
         reports_db[report_id] = report
-        
-        return {
+
+        result = {
             "report_id": report_id,
+            "cached": False,
             **report
         }
+
+        # Cache by content hash for deterministic results on re-upload
+        content_hash_cache[content_hash] = result
+        
+        return result
     except Exception as e:
         logger.error(f"Agent execution failed: {e}")
         raise HTTPException(status_code=500, detail=f"Agent failed to process policy: {str(e)}")

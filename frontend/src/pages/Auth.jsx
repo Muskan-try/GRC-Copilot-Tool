@@ -77,7 +77,7 @@ export default function Auth() {
             <label>Password</label>
             <input
               type="password"
-              placeholder="Enter your password"
+              placeholder="Min 8 chars, uppercase, lowercase, number"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               required

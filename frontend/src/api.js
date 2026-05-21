@@ -68,7 +68,7 @@ async function request(path, options = {}) {
 export async function register(email, password, orgName) {
   const data = await request("/auth/register", {
     method: "POST",
-    body: { email, password, organization_name: orgName },
+    body: { email, password, org_name: orgName },
   });
   setToken(data.token);
   setCurrentUser({ user_id: data.user_id, email: data.email, role: data.role, org_id: data.org_id });

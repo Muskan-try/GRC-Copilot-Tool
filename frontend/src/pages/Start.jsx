@@ -62,10 +62,10 @@ const ASSESSMENT_INFO = [
     id: "agent",
     title: "AI Compliance Agent",
     icon: "🤖",
-    details: "An AI-powered mapping tool that automatically extracts controls from your policy documents and maps them to global frameworks.",
-    steps: "1. Upload Policy Document. 2. Automated Extraction. 3. AI Framework Mapping. 4. Gap & Risk Identification.",
-    requirements: "Organization policy documents (PDF, DOCX, TXT).",
-    outcomes: "Automated compliance map, identified gaps, and AI-generated remediation recommendations.",
+    details: "An AI-powered continuous assurance engine. Connects via APIs/SSH to GitHub, AWS, Jira, and Identity Providers to pull data on a schedule, verifies that security policies are actually enforced (not just documented), and auto-remediates gaps by opening Jira tickets or Git Pull Requests pending human approval.",
+    steps: "1. Active Fetching — connects to live systems and pulls compliance data automatically. 2. Execution Verification — tests whether controls like MFA, encryption, and access policies are actively enforced. 3. Gap Analysis — maps findings against target frameworks. 4. Automated Remediation — opens Jira tickets or PRs to close identified gaps.",
+    requirements: "API credentials or SSH access to GitHub, AWS, Jira, and Identity Providers.",
+    outcomes: "Real-time compliance posture, verified control enforcement, prioritized gap register, and auto-generated remediation tickets/PRs awaiting human approval.",
     isAgent: true
   }
 ];

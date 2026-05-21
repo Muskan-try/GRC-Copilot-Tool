@@ -5,6 +5,7 @@ Uses DeepSeek, OpenAI, or other LLM providers for intelligent compliance analysi
 
 import os
 import json
+import hashlib
 import httpx
 from typing import Optional, Dict, List, Any
 from loguru import logger
@@ -35,7 +36,8 @@ class LLMProvider:
         return ""
     
     async def chat_completion(self, messages: List[Dict], temperature: float = 0.7, 
-                             max_tokens: int = 2000, json_mode: bool = False) -> Optional[str]:
+                             max_tokens: int = 2000, json_mode: bool = False,
+                             seed: int = 42) -> Optional[str]:
         """Send chat completion request to LLM"""
         raise NotImplementedError
     
@@ -56,13 +58,15 @@ class DeepSeekProvider(LLMProvider):
         return os.getenv("DEEPSEEK_API_URL", "https://api.deepseek.com/v1/chat/completions")
     
     async def chat_completion(self, messages: List[Dict], temperature: float = 0.7,
-                             max_tokens: int = 2000, json_mode: bool = False) -> Optional[str]:
+                             max_tokens: int = 2000, json_mode: bool = False,
+                             seed: int = 42) -> Optional[str]:
         try:
             payload = {
                 "model": self.model,
                 "messages": messages,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
+                "seed": seed,
             }
             
             if json_mode:
@@ -99,13 +103,15 @@ class OpenAIProvider(LLMProvider):
         return os.getenv("OPENAI_API_URL", "https://api.openai.com/v1/chat/completions")
     
     async def chat_completion(self, messages: List[Dict], temperature: float = 0.7,
-                             max_tokens: int = 2000, json_mode: bool = False) -> Optional[str]:
+                             max_tokens: int = 2000, json_mode: bool = False,
+                             seed: int = 42) -> Optional[str]:
         try:
             payload = {
                 "model": self.model,
                 "messages": messages,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
+                "seed": seed,
             }
             
             if json_mode:
@@ -142,13 +148,15 @@ class GroqProvider(LLMProvider):
         return os.getenv("GROQ_API_URL", "https://api.groq.com/openai/v1/chat/completions")
     
     async def chat_completion(self, messages: List[Dict], temperature: float = 0.7,
-                             max_tokens: int = 2000, json_mode: bool = False) -> Optional[str]:
+                             max_tokens: int = 2000, json_mode: bool = False,
+                             seed: int = 42) -> Optional[str]:
         try:
             payload = {
                 "model": self.model,
                 "messages": messages,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
+                "seed": seed,
             }
             
             if json_mode:

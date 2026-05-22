@@ -271,7 +271,8 @@ export default function QuestionnaireEnhanced() {
     );
   }
 
-  const progress = Math.round(((currentIndex + 1) / questions.length) * 100);
+  const answeredCount = Object.keys(answers).filter(k => answers[k]?.compliance !== undefined && answers[k]?.maturity !== undefined).length;
+  const progress = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
   const summary = getScoreSummary();
 
   if (view === "review") {

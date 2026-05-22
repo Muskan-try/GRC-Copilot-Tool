@@ -146,7 +146,8 @@ export default function Start() {
 
     // Populate with actual data from assessments
     assessments.forEach((a) => {
-      const type = getFrontendType(a);
+      // AI agent assessments always count under "agent" type
+      const type = a.is_agent ? "agent" : getFrontendType(a);
       if (groups[type]) {
         groups[type].total++;
         if (a.status === "complete") {
@@ -154,7 +155,6 @@ export default function Start() {
         } else {
           groups[type].pending++;
         }
-        // Include score if it exists (backend returns string from pg)
         const score = safeScore(a.compliance_score);
         if (score > 0) {
           groups[type].scores.push(score);
@@ -165,10 +165,11 @@ export default function Start() {
   }, [assessments]);
 
   const globalHealth = useMemo(() => {
-    if (assessments.length === 0) return 0;
-    const scores = assessments.map((a) => safeScore(a.compliance_score));
+    const scored = assessments.filter((a) => a.compliance_score !== null && a.compliance_score !== undefined && a.compliance_score !== "0");
+    if (scored.length === 0) return 0;
+    const scores = scored.map((a) => safeScore(a.compliance_score));
     const sum = scores.reduce((acc, s) => acc + s, 0);
-    return Math.round(sum / scores.length);
+    return Math.round(sum / scored.length);
   }, [assessments]);
 
   const handleLogout = () => {
@@ -337,7 +338,7 @@ export default function Start() {
                   {globalHealth}%
                 </div>
                 <div style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                  Average Compliance across all {assessments.length} audits
+                  Average Compliance across {assessments.filter(a => a.compliance_score !== null && a.compliance_score !== undefined).length} scored assessments
                 </div>
               </div>
 
@@ -675,11 +676,14 @@ export default function Start() {
                         {assessments
                             .filter(a => {
                                 const statusMatch = activeSummary.status === 'all' || (activeSummary.status === 'complete' ? a.status === 'complete' : a.status !== 'complete');
-                                const typeMatch = !activeSummary.type || getFrontendType(a) === activeSummary.type;
+                                const aType = a.is_agent ? "agent" : getFrontendType(a);
+                                const typeMatch = !activeSummary.type || aType === activeSummary.type;
                                 return statusMatch && typeMatch;
                             })
                             .map(a => {
-                                const typeInfo = ASSESSMENT_INFO.find(info => info.id === getFrontendType(a));
+                                const aType = a.is_agent ? "agent" : getFrontendType(a);
+                                const typeInfo = ASSESSMENT_INFO.find(info => info.id === aType);
+                                const isAgent = a.is_agent || false;
                                 return (
                                     <tr key={a.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} 
                                         onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-hover)'}
@@ -703,13 +707,17 @@ export default function Start() {
                                             {new Date(a.created_at).toLocaleDateString()}
                                         </td>
                                         <td style={{ padding: '16px 8px', textAlign: 'right' }}>
-                                            <button 
-                                                className="btn btn-primary" 
-                                                style={{ padding: '8px 16px', fontSize: '0.8rem', height: 'auto', width: 'auto', borderRadius: 8 }}
-                                                onClick={() => navigate(a.status === 'complete' ? `/dashboard-v2/${a.id}` : `/questionnaire-enhanced/${a.id}`)}
-                                            >
-                                                {a.status === 'complete' ? 'View Results' : 'Continue'}
-                                            </button>
+                                            {isAgent ? (
+                                                <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 700 }}>AI Agent Run</span>
+                                            ) : (
+                                                <button 
+                                                    className="btn btn-primary" 
+                                                    style={{ padding: '8px 16px', fontSize: '0.8rem', height: 'auto', width: 'auto', borderRadius: 8 }}
+                                                    onClick={() => navigate(a.status === 'complete' ? `/dashboard-v2/${a.id}` : `/questionnaire-enhanced/${a.id}`)}
+                                                >
+                                                    {a.status === 'complete' ? 'View Results' : 'Continue'}
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 );

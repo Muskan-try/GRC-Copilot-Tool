@@ -119,7 +119,26 @@ router.get('/', authenticate, async (req, res, next) => {
        LIMIT 20`,
       [req.user.user_id]
     );
-    res.json({ assessments: result.rows, total: result.rowCount });
+
+    // Also fetch AI Compliance Agent assessments from FastAPI
+    let agentAssessments = [];
+    try {
+      const axios = require('axios');
+      const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000';
+      const agentRes = await axios.get(`${FASTAPI_URL}/agent/compliance/assessments`, {
+        timeout: 5000,
+        headers: { 'X-Internal-Service': 'grc-gateway' }
+      });
+      agentAssessments = (agentRes.data.assessments || []).map(a => ({
+        ...a,
+        is_agent: true
+      }));
+    } catch (agentErr) {
+      // Silently skip — FastAPI may not be running
+    }
+
+    const allAssessments = [...agentAssessments, ...result.rows];
+    res.json({ assessments: allAssessments, total: allAssessments.length });
   } catch (err) {
     next(err);
   }

@@ -2,6 +2,7 @@ const axios = require('axios');
 const { query } = require('../config/postgres');
 const { Report } = require('../config/mongo');
 const logger = require('../config/logger');
+const audit = require('./audit.service');
 
 const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000';
 
@@ -88,10 +89,12 @@ async function triggerAnalysis(assessment_id, user_id) {
       [reportData.compliance_score, reportData.risk_level, reportData.report_id, assessment_id]
     );
 
+    audit.log(user_id, audit.AUDIT_ACTIONS.ANALYSIS_COMPLETE, 'assessment', assessment_id, { score: reportData.compliance_score, risk_level: reportData.risk_level }, null).catch(() => {});
     logger.info(`Analysis complete for ${assessment_id}. Score: ${reportData.compliance_score}%, Risk: ${reportData.risk_level}`);
     return reportData;
 
   } catch (err) {
+    audit.log(user_id, audit.AUDIT_ACTIONS.ANALYSIS_FAILED, 'assessment', assessment_id, { error: err.message }, null).catch(() => {});
     logger.error(`Analysis failed for ${assessment_id}:`, err.message);
 
     await query(

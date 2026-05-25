@@ -3,6 +3,7 @@ const { body, validationResult } = require('express-validator');
 const { query } = require('../config/postgres');
 const { authenticate } = require('../middleware/auth');
 const logger = require('../config/logger');
+const audit = require('../services/audit.service');
 
 const router = express.Router();
 
@@ -92,6 +93,7 @@ router.post(
       }
 
       logger.info(`Organization setup for user ${req.user.user_id}: ${name}`);
+      audit.log(req.user.user_id, audit.AUDIT_ACTIONS.ORG_CREATE, 'organization', null, { name, frameworks: req.body.frameworks }, req).catch(() => {});
       res.status(201).json({
         org_id,
         id: assessmentId,
@@ -191,6 +193,7 @@ router.put('/:id', authenticate, async (req, res, next) => {
       return res.status(404).json({ error: 'Organization not found.' });
     }
 
+    audit.log(req.user.user_id, audit.AUDIT_ACTIONS.ORG_UPDATE, 'organization', id, { name: result.rows[0]?.name }, req).catch(() => {});
     res.json({ message: 'Organization updated.', organization: result.rows[0] });
   } catch (err) {
     next(err);

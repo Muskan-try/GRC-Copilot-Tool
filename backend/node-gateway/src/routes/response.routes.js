@@ -7,6 +7,7 @@ const { query } = require('../config/postgres');
 const { authenticate } = require('../middleware/auth');
 const { triggerAnalysis } = require('../services/analysis.service');
 const logger = require('../config/logger');
+const audit = require('../services/audit.service');
 
 const router = express.Router();
 
@@ -128,6 +129,12 @@ router.post(
         analysis_queued = true;
       }
 
+      audit.log(req.user.user_id, audit.AUDIT_ACTIONS.RESPONSE_BATCH_SUBMIT, 'assessment', assessment_id, {
+        count: saved,
+        is_final: !!is_final,
+        framework: assessment.framework,
+      }, req).catch(() => {});
+
       res.status(201).json({
         submission_id: uuidv4(),
         assessment_id,
@@ -191,6 +198,12 @@ router.post(
         );
         uploaded.push(result.rows[0]);
       }
+
+      audit.log(req.user.user_id, audit.AUDIT_ACTIONS.EVIDENCE_UPLOAD, 'evidence', assessmentId, {
+        question_id: questionId,
+        uploaded_count: uploaded.length,
+        files: uploaded.map(f => f.original_name),
+      }, req).catch(() => {});
 
       res.status(201).json({
         assessment_id: assessmentId,
@@ -266,6 +279,10 @@ router.delete('/:assessmentId/evidence/:fileId', authenticate, async (req, res, 
     } catch (_) {}
 
     res.json({ message: 'Evidence file deleted.', file: result.rows[0].original_name });
+    audit.log(req.user.user_id, audit.AUDIT_ACTIONS.EVIDENCE_DELETE, 'evidence', assessmentId, {
+      file: result.rows[0].original_name,
+      file_path: result.rows[0].file_path,
+    }, req).catch(() => {});
   } catch (err) {
     next(err);
   }

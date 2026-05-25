@@ -18,6 +18,8 @@ const dashboardRoutes = require('./routes/dashboard.routes');
 const reportRoutes = require('./routes/report.routes');
 const aiRoutes = require('./routes/ai.routes');
 const complianceAgentRoutes = require('./routes/compliance-agent.routes');
+const auditRoutes = require('./routes/audit.routes');
+const calendarRoutes = require('./routes/calendar.routes');
 
 // Module Routes (v2)
 const v2AssessmentRoutes = require('./modules/assessment/routes/assessment.routes');
@@ -54,6 +56,8 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/agent/compliance', complianceAgentRoutes);
+app.use('/api/audit', auditRoutes);
+app.use('/api/calendar', calendarRoutes);
 
 // V2 Modular Routes
 app.use('/api/v2/assessment', v2AssessmentRoutes);
@@ -76,6 +80,7 @@ async function bootstrap() {
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, () => {
       logger.info(`GRC Copilot Gateway running on port ${PORT}`);
+
     });
   } catch (err) {
     logger.error('Failed to start server:', err);

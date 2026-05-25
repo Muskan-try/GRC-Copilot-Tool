@@ -45,7 +45,7 @@ app.add_middleware(
 # ─── Internal auth middleware ─────────────────────────────────────────────
 @app.middleware("http")
 async def internal_auth(request: Request, call_next):
-    if request.url.path in ["/health", "/docs", "/redoc", "/openapi.json"]:
+    if request.url.path in ["/", "/health", "/docs", "/redoc", "/openapi.json"]:
         return await call_next(request)
     service_key = request.headers.get("X-Internal-Service")
     expected = os.getenv("INTERNAL_SERVICE_KEY", "grc-gateway")

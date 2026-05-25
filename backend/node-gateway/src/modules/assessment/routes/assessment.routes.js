@@ -9,6 +9,7 @@ const evidenceService = require('../services/evidence.service');
 const gapAnalysisService = require('../services/gap_analysis.service');
 const insuranceService = require('../../insurance/services/insurance.service');
 const dashboardService = require('../services/dashboard.service');
+const audit = require('../../../services/audit.service');
 const router = express.Router();
 
 // ─── Multer Config for Secure File Handling ──────────────────────────────
@@ -74,6 +75,12 @@ router.post(
         assessment_type
       );
       
+      audit.log(req.user.user_id, audit.AUDIT_ACTIONS.ASSESSMENT_CREATE, 'assessment', result?.assessment_id || result?.id, {
+        organization_name,
+        selected_frameworks,
+        analysis_depth,
+        assessment_type,
+      }, req).catch(() => {});
       res.status(201).json(result);
     } catch (err) {
       if (err.message.includes('None of the selected frameworks')) {
@@ -98,6 +105,7 @@ router.patch('/:id/config', authenticate, async (req, res, next) => {
     if (status !== undefined) updates.status = status;
 
     const result = await assessmentService.updateAssessmentConfig(id, req.user.user_id, updates);
+    audit.log(req.user.user_id, audit.AUDIT_ACTIONS.ASSESSMENT_UPDATE, 'assessment', id, { updates }, req).catch(() => {});
     res.json({ message: 'Assessment updated.', assessment: result });
   } catch (err) {
     if (err.message.includes('not found') || err.message.includes('unauthorized')) {
@@ -116,6 +124,7 @@ router.post('/:id/complete', authenticate, async (req, res, next) => {
     const { id } = req.params;
     const result = await assessmentService.completeAssessment(id, req.user.user_id);
     if (!result) return res.status(404).json({ error: 'Assessment not found or already complete' });
+    audit.log(req.user.user_id, audit.AUDIT_ACTIONS.ASSESSMENT_COMPLETE, 'assessment', id, {}, req).catch(() => {});
     res.json(result);
   } catch (err) {
     next(err);
@@ -175,6 +184,10 @@ router.post(
         uploaded.push(entry);
       }
 
+      audit.log(req.user.user_id, audit.AUDIT_ACTIONS.EVIDENCE_UPLOAD, 'evidence', id, {
+        question_id,
+        uploaded_count: uploaded.length,
+      }, req).catch(() => {});
       res.status(201).json({
         assessment_id: id,
         question_id,
@@ -280,6 +293,7 @@ router.post(
       const { id } = req.params;
       const { frameworks } = req.body;
       const result = await assessmentService.addFrameworks(id, req.user.user_id, frameworks);
+      audit.log(req.user.user_id, audit.AUDIT_ACTIONS.ASSESSMENT_UPDATE, 'assessment', id, { added_frameworks: frameworks }, req).catch(() => {});
       res.json(result);
     } catch (err) {
       if (err.message.includes('not found') || err.message.includes('unauthorized')) {

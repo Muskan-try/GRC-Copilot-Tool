@@ -59,6 +59,8 @@ export default function Layout({ children }) {
           <NavButton label="Dashboard" path="/start" current={location.pathname} navigate={navigate} />
           <NavButton label="Assessments" path="/start" current={location.pathname} navigate={navigate} />
           <NavButton label="AI Agent" path="/agent" current={location.pathname} navigate={navigate} />
+          <NavButton label="Audit Trail" path="/audit-logs" current={location.pathname} navigate={navigate} />
+          <NavButton label="Calendar" path="/compliance-calendar" current={location.pathname} navigate={navigate} />
         </nav>
 
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>

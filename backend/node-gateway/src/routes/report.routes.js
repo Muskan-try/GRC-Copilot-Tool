@@ -2,6 +2,7 @@ const express = require('express');
 const { query } = require('../config/postgres');
 const { Report } = require('../config/mongo');
 const { authenticate } = require('../middleware/auth');
+const audit = require('../services/audit.service');
 
 const router = express.Router();
 

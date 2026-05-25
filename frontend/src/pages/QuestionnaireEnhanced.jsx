@@ -116,9 +116,20 @@ export default function QuestionnaireEnhanced() {
     if (!currentQuestion) return;
     const qid = currentQuestion.question_id;
     const prev = answers[qid] || {};
-    const newAnswers = { ...answers, [qid]: { ...prev, compliance: val, is_na: val === 3 } };
+    const isNa = val === 3;
+    const maturity = isNa ? 0 : prev.maturity;
+    const newAnswers = { ...answers, [qid]: { ...prev, compliance: val, maturity, is_na: isNa } };
     setAnswers(newAnswers);
     await submitAnswer(qid, newAnswers[qid], currentQuestion);
+    if (isNa) {
+      setTimeout(() => {
+        if (currentIndex < questions.length - 1) {
+          setCurrentIndex(currentIndex + 1);
+        } else {
+          setView("review");
+        }
+      }, 350);
+    }
   };
 
   const handleMaturitySelect = async (val) => {
@@ -128,6 +139,13 @@ export default function QuestionnaireEnhanced() {
     const newAnswers = { ...answers, [qid]: { ...prev, maturity: val } };
     setAnswers(newAnswers);
     await submitAnswer(qid, newAnswers[qid], currentQuestion);
+    setTimeout(() => {
+      if (currentIndex < questions.length - 1) {
+        setCurrentIndex(currentIndex + 1);
+      } else {
+        setView("review");
+      }
+    }, 350);
   };
 
   const submitAnswer = async (qid, ans, question) => {
@@ -603,19 +621,23 @@ export default function QuestionnaireEnhanced() {
             </div>
           </div>
 
-          <div className="question-navigation">
-            <button className="btn btn-outline" onClick={prev} disabled={currentIndex === 0}>
+          <div className="question-navigation" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 0", marginTop: 16, borderTop: "1px solid var(--border-color)" }}>
+            <button className="btn btn-outline" onClick={prev} disabled={currentIndex === 0}
+              style={{ padding: "10px 20px", fontSize: "0.85rem", fontWeight: 600, borderRadius: 8, opacity: currentIndex === 0 ? 0.4 : 1 }}>
               ← Previous
             </button>
 
-            <div className="nav-info">
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#94a3b8", background: "#f1f5f9", padding: "4px 12px", borderRadius: 20 }}>
+                {currentIndex + 1} / {questions.length}
+              </span>
               <span className="weight-badge">Weight: {currentQuestion?.weight}x</span>
-              {currentQuestion?.critical && <span className="critical-indicator">Critical Control</span>}
+              {currentQuestion?.critical && <span className="critical-indicator">Critical</span>}
             </div>
 
-            <button className="btn btn-primary" onClick={next}>
-              {currentIndex === questions.length - 1 ? "Review All →" : "Next →"}
-            </button>
+            <div style={{ fontSize: "0.8rem", color: "#94a3b8", fontWeight: 600, background: "#f1f5f9", padding: "4px 12px", borderRadius: 20 }}>
+              {questions.length - currentIndex - 1} left
+            </div>
           </div>
         </div>
       </div>

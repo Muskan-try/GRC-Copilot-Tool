@@ -4,15 +4,15 @@
 const rawApiBase = import.meta.env.VITE_API_URL || "/api";
 export const API_BASE = rawApiBase.endsWith('/') ? rawApiBase.slice(0, -1) : rawApiBase;
 
-let authToken = localStorage.getItem("authToken") || null;
+let authToken = localStorage.getItem("grc_auth_token") || null;
 let currentUser = JSON.parse(localStorage.getItem("currentUser") || "null");
 
 export function setToken(token) {
   authToken = token;
   if (token) {
-    localStorage.setItem("authToken", token);
+    localStorage.setItem("grc_auth_token", token);
   } else {
-    localStorage.removeItem("authToken");
+    localStorage.removeItem("grc_auth_token");
   }
 }
 
@@ -56,7 +56,10 @@ async function request(path, options = {}) {
     error.data = data;
     if (res.status === 401) {
       logout();
-      window.location.href = "/auth";
+      // Only redirect if we are not already on the auth page to avoid loops
+      if (window.location.pathname !== "/") {
+        window.location.href = "/";
+      }
     }
     throw error;
   }
@@ -68,11 +71,11 @@ async function request(path, options = {}) {
 export async function register(email, password, orgName) {
   const data = await request("/auth/register", {
     method: "POST",
-    body: { email, password, org_name: orgName },
+    body: { email, password, org_name: orgName }, 
   });
   setToken(data.token);
   setCurrentUser({ user_id: data.user_id, email: data.email, role: data.role, org_id: data.org_id });
-  sessionStorage.clear(); // Clear any stale progress from other users
+  sessionStorage.clear(); 
   return data;
 }
 
@@ -279,7 +282,9 @@ export async function uploadPolicy(file) {
     body: formData,
   });
 
-  return res.json();
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Upload failed: ${res.status}`);
+  return data;
 }
 
 export async function runComplianceAgent(file) {
@@ -296,7 +301,9 @@ export async function runComplianceAgent(file) {
     body: formData,
   });
 
-  return res.json();
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Agent run failed: ${res.status}`);
+  return data;
 }
 
 export async function getComplianceReport(reportId) {

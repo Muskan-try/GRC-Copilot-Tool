@@ -2,29 +2,38 @@ import os
 from typing import List
 from pydantic import BaseModel, Field
 import chromadb
-from chromadb.utils import embedding_functions
+from chromadb.utils import embedding_functions  # <-- Ensure this is imported
 
-# 1. Setup our structural schema matching compliance framework properties
 class FrameworkControl(BaseModel):
     framework: str = Field(description="The formal name of the regulatory framework")
     control_id: str = Field(description="The exact clause, article, or section number")
     category: str = Field(description="The functional security domain or category name")
     control_text: str = Field(description="The definitive technical description of the control requirement")
 
-# 2. Establish persistent local database instance
-# This creates a folder named 'grc_vector_db' in your project directory
-chroma_client = chromadb.PersistentClient(path="grc_vector_db")
+# Try multiple paths to ensure it works in both Local and Docker environments
+possible_paths = [
+    "/app/grc_vector_db",  # Docker path
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "grc_vector_db"), # Docker fallback
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "..", "grc_vector_db"), # Local path
+    "grc_vector_db" # Fallback
+]
 
-# Use OpenAI's fast, high-density embedding model
-openai_ef = embedding_functions.OpenAIEmbeddingFunction(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    model_name="text-embedding-3-small"
+DB_PATH = possible_paths[-1]
+for path in possible_paths:
+    if os.path.exists(path):
+        DB_PATH = path
+        break
+
+chroma_client = chromadb.PersistentClient(path=DB_PATH)
+
+# SWAPPED: Changed from OpenAI to free local sentence-transformers
+local_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+    model_name="all-MiniLM-L6-v2"
 )
 
-# Fetch or build our framework collection using cosine distance calculation
 collection = chroma_client.get_or_create_collection(
     name="compliance_frameworks",
-    embedding_function=openai_ef,
+    embedding_function=local_ef,
     metadata={"hnsw:space": "cosine"}
 )
 

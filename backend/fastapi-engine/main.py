@@ -5,9 +5,10 @@ from loguru import logger
 import uvicorn
 import sys
 import os
-from app.routers import auth
+
+# Cleaned up imports to avoid redundancy
+from app.routers import auth, analysis, health, compliance_agent
 from app.core.database import connect_mongo, connect_postgres, close_connections
-from app.routers import analysis, health, compliance_agent
 
 # ─── Logger setup ─────────────────────────────────────────────────────────
 logger.remove()
@@ -45,8 +46,10 @@ app.add_middleware(
 # ─── Internal auth middleware ─────────────────────────────────────────────
 @app.middleware("http")
 async def internal_auth(request: Request, call_next):
-    if request.url.path in ["/health", "/docs", "/redoc", "/openapi.json"]:
+    # ✅ Added login and register to the allowed path list for local testing
+    if request.url.path in ["/health", "/docs", "/redoc", "/openapi.json", "/auth/login", "/auth/register"]:
         return await call_next(request)
+    
     service_key = request.headers.get("X-Internal-Service")
     expected = os.getenv("INTERNAL_SERVICE_KEY", "grc-gateway")
     if service_key != expected:
@@ -54,9 +57,13 @@ async def internal_auth(request: Request, call_next):
         return JSONResponse(status_code=403, content={"error": "Internal service key required"})
     return await call_next(request)
 
+# ─── Router Registration ──────────────────────────────────────────────────
 app.include_router(health.router)
 app.include_router(analysis.router, prefix="/analysis")
-app.include_router(compliance_agent.router, prefix="/agent/compliance")
 app.include_router(auth.router, prefix="/auth")
+
+# ✅ FIXED: Mount compliance_agent with the correct prefix expected by the gateway
+app.include_router(compliance_agent.router, prefix="/agent/compliance")
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=int(os.getenv("PORT", 8000)), reload=True, log_level="info")

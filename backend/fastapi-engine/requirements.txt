@@ -6,11 +6,13 @@ asyncpg==0.29.0
 python-dotenv==1.0.1
 pydantic==2.5.2
 pydantic-settings==2.1.0
-httpx==0.25.2
+httpx>=0.28.1
 python-multipart==0.0.6
 reportlab==4.0.9
 python-docx==1.1.0
 pypdf==4.0.1
 loguru==0.7.2
-groq==0.4.2
+groq>=1.2.0
 passlib[bcrypt]==1.7.4
+chromadb==0.6.3
+sentence-transformers==3.4.1

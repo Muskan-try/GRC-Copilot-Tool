@@ -1,4 +1,6 @@
 import os
+from dotenv import load_dotenv
+load_dotenv() # This forces Python to look for your .env file and read your key!
 from typing import List
 from docx import Document
 from pypdf import PdfReader
@@ -35,6 +37,28 @@ def extract_text_from_file(file_path: str) -> str:
             if text:
                 extracted_text += text + "\n"
     return extracted_text.strip()
+
+def is_security_policy(raw_text: str) -> bool:
+    """Uses LLM to quickly determine if the text is actually a security/compliance policy."""
+    if not raw_text or len(raw_text) < 50:
+        return False
+        
+    prompt = (
+        "Analyze the text below. Is this a formal security policy, compliance document, or organizational standard? "
+        "Respond with 'YES' or 'NO' followed by a short reason. "
+        "A train ticket, restaurant menu, or personal letter should be 'NO'. "
+        "An ISO manual, SOC 2 policy, or Employee Handbook should be 'YES'.\n\n"
+        f"TEXT START: {raw_text[:2000]}"
+    )
+    
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=20
+    )
+    
+    answer = response.choices[0].message.content.strip().upper()
+    return answer.startswith("YES")
 
 # --- AGENT A: THE GROQ EXTRACTOR AGENT ---
 def run_extractor_agent(raw_text: str) -> ExtractionPayload:

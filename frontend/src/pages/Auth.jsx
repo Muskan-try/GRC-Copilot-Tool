@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { login, register } from "../api";
+import { login, register, isAuthenticated } from "../api";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -8,6 +8,12 @@ export default function Auth() {
   const [form, setForm] = useState({ email: "", password: "", orgName: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated()) {
+      navigate("/start");
+    }
+  }, [navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -59,7 +59,7 @@ router.post(
       // Verify assessment belongs to user
       const assessResult = await query(
         `SELECT id, status, org_id, framework, analysis_depth
-         FROM assessments WHERE id = $1 AND user_id = $2`,
+         FROM assessments WHERE id = $1 AND org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active')`,
         [assessment_id, req.user.user_id]
       );
 
@@ -77,11 +77,11 @@ router.post(
       let saved = 0;
       for (const resp of responses) {
         await query(
-          `INSERT INTO responses (assessment_id, question_id, answer_index, category)
-           VALUES ($1, $2, $3, $4)
+          `INSERT INTO responses (assessment_id, question_id, answer_index, category, respondent_id)
+           VALUES ($1, $2, $3, $4, $5)
            ON CONFLICT (assessment_id, question_id)
-           DO UPDATE SET answer_index = EXCLUDED.answer_index, submitted_at = NOW()`,
-          [assessment_id, resp.question_id, resp.answer_index, resp.category || null]
+           DO UPDATE SET answer_index = EXCLUDED.answer_index, respondent_id = EXCLUDED.respondent_id, submitted_at = NOW()`,
+          [assessment_id, resp.question_id, resp.answer_index, resp.category || null, req.user.user_id]
         );
         saved++;
       }
@@ -169,7 +169,7 @@ router.post(
 
       // Verify ownership
       const assessResult = await query(
-        'SELECT id FROM assessments WHERE id = $1 AND user_id = $2',
+        `SELECT id FROM assessments WHERE id = $1 AND org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active')`,
         [assessmentId, req.user.user_id]
       );
       if (!assessResult.rows.length) {
@@ -228,7 +228,7 @@ router.get('/:assessmentId', authenticate, async (req, res, next) => {
     const { assessmentId } = req.params;
 
     const assessResult = await query(
-      'SELECT id FROM assessments WHERE id = $1 AND user_id = $2',
+      `SELECT id FROM assessments WHERE id = $1 AND org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active')`,
       [assessmentId, req.user.user_id]
     );
     if (!assessResult.rows.length) {
@@ -264,7 +264,7 @@ router.delete('/:assessmentId/evidence/:fileId', authenticate, async (req, res, 
     const result = await query(
       `DELETE FROM evidence_files
        WHERE id = $1 AND assessment_id = $2
-         AND assessment_id IN (SELECT id FROM assessments WHERE user_id = $3)
+         AND assessment_id IN (SELECT a.id FROM assessments a JOIN org_members om ON om.org_id = a.org_id WHERE om.user_id = $3 AND om.status = 'active')
        RETURNING original_name, file_path`,
       [fileId, assessmentId, req.user.user_id]
     );

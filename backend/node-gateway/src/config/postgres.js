@@ -128,9 +128,20 @@ async function runMigrations() {
     await query(`ALTER TABLE responses ADD COLUMN IF NOT EXISTS is_na BOOLEAN DEFAULT false`);
     await query(`ALTER TABLE responses ADD COLUMN IF NOT EXISTS audit_answer VARCHAR(50)`);
     await query(`ALTER TABLE responses ADD COLUMN IF NOT EXISTS domain VARCHAR(100)`);
+    try {
+      await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS provider VARCHAR(50) DEFAULT NULL`);
+      await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS provider_id VARCHAR(255) DEFAULT NULL`);
+      await query(`CREATE INDEX IF NOT EXISTS idx_users_provider ON users(provider, provider_id)`);
+    } catch (e) {}
     await query(`ALTER TABLE responses ADD COLUMN IF NOT EXISTS control VARCHAR(100)`);
     await query(`ALTER TABLE responses ADD COLUMN IF NOT EXISTS critical BOOLEAN DEFAULT false`);
     await query(`ALTER TABLE responses ADD COLUMN IF NOT EXISTS auto_answered BOOLEAN DEFAULT false`);
+    try {
+      await query(`ALTER TABLE responses ADD COLUMN IF NOT EXISTS respondent_id UUID REFERENCES users(id)`);
+      await query(`ALTER TABLE responses ADD COLUMN IF NOT EXISTS review_status VARCHAR(20) DEFAULT 'draft' CHECK (review_status IN ('draft', 'submitted', 'approved', 'rejected'))`);
+      await query(`ALTER TABLE responses ADD COLUMN IF NOT EXISTS reviewed_by UUID REFERENCES users(id)`);
+      await query(`ALTER TABLE responses ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ`);
+    } catch (e) {}
   } catch (e) {
     // Ignore
   }
@@ -299,6 +310,72 @@ async function runMigrations() {
 
 
 
+
+
+  // --- COLLABORATION TABLES ---
+
+  // Organization members
+  await query(`CREATE TABLE IF NOT EXISTS org_members (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role VARCHAR(50) NOT NULL DEFAULT 'member'
+          CHECK (role IN ('owner', 'admin', 'member', 'auditor', 'reviewer')),
+      status VARCHAR(50) NOT NULL DEFAULT 'active'
+          CHECK (status IN ('active', 'invited', 'suspended')),
+      invited_by UUID REFERENCES users(id),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(org_id, user_id)
+    )`);
+
+  await query(`CREATE INDEX IF NOT EXISTS idx_org_members_org ON org_members(org_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_org_members_user ON org_members(user_id)`);
+
+  // Invitations
+  await query(`CREATE TABLE IF NOT EXISTS invitations (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      email VARCHAR(255) NOT NULL,
+      role VARCHAR(50) NOT NULL DEFAULT 'member',
+      invited_by UUID NOT NULL REFERENCES users(id),
+      token VARCHAR(255) UNIQUE NOT NULL,
+      status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'expired')),
+      expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '7 days',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+
+  await query(`CREATE INDEX IF NOT EXISTS idx_invitations_token ON invitations(token)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_invitations_org ON invitations(org_id)`);
+
+  // Assessment section assignments
+  await query(`CREATE TABLE IF NOT EXISTS assessment_assignments (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      assessment_id UUID NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      framework_id UUID REFERENCES frameworks(id) ON DELETE SET NULL,
+      assigned_by UUID NOT NULL REFERENCES users(id),
+      status VARCHAR(50) DEFAULT 'pending'
+          CHECK (status IN ('pending', 'in_progress', 'completed', 'reviewed')),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+
+  await query(`CREATE INDEX IF NOT EXISTS idx_assignments_assessment ON assessment_assignments(assessment_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_assignments_user ON assessment_assignments(user_id)`);
+
+  // Approval workflow
+  await query(`CREATE TABLE IF NOT EXISTS approval_workflow (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      assessment_id UUID NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
+      reviewer_id UUID NOT NULL REFERENCES users(id),
+      status VARCHAR(50) DEFAULT 'pending_review'
+          CHECK (status IN ('pending_review', 'approved', 'changes_requested')),
+      feedback TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(assessment_id, reviewer_id)
+    )`);
+
+  await query(`CREATE INDEX IF NOT EXISTS idx_approval_assessment ON approval_workflow(assessment_id)`);
   // --- COMPLIANCE CALENDAR EVENTS TABLE ---
   await query(`CREATE TABLE IF NOT EXISTS compliance_events (
       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

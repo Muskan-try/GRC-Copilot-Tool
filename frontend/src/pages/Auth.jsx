@@ -40,7 +40,7 @@ export default function Auth() {
           <div style={{ 
             width: 48, height: 48, background: "var(--primary)", borderRadius: 12, 
             display: "inline-flex", alignItems: "center", justifyContent: "center", 
-            marginBottom: 16, color: "#fff", fontSize: "1.5rem", fontWeight: 800,
+            marginBottom: 16, color: "var(--text-on-dark)", fontSize: "1.5rem", fontWeight: 800,
             boxShadow: "var(--glow)"
           }}>G</div>
           <h1 style={{ margin: 0, color: "var(--text-main)" }}>Compliance Hub</h1>
@@ -48,7 +48,7 @@ export default function Auth() {
         </div>
 
         {error && (
-          <div style={{ padding: "12px 16px", background: "#fef2f2", border: "1px solid #fee2e2", borderRadius: 12, marginBottom: 20, fontSize: "0.88rem", color: "#991b1b", display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ padding: "12px 16px", background: "var(--danger-bg)", border: "1px solid #fee2e2", borderRadius: 12, marginBottom: 20, fontSize: "0.88rem", color: "var(--danger)", display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: "1.1rem" }}>⚠</span> {error}
           </div>
         )}
@@ -97,11 +97,11 @@ export default function Auth() {
           </button>
         </form>
 
-        <div style={{ marginTop: 16, textAlign: "center", fontSize: "0.88rem", color: "#666" }}>
+        <div style={{ marginTop: 16, textAlign: "center", fontSize: "0.88rem", color: "var(--text-muted)" }}>
           {mode === "login" ? (
-            <>Don't have an account? <a href="#" onClick={(e) => { e.preventDefault(); setMode("register"); }} style={{ color: "#111", fontWeight: 600 }}>Sign up</a></>
+            <>Don't have an account? <a href="#" onClick={(e) => { e.preventDefault(); setMode("register"); }} style={{ color: "var(--text-main)", fontWeight: 600 }}>Sign up</a></>
           ) : (
-            <>Already have an account? <a href="#" onClick={(e) => { e.preventDefault(); setMode("login"); }} style={{ color: "#111", fontWeight: 600 }}>Sign in</a></>
+            <>Already have an account? <a href="#" onClick={(e) => { e.preventDefault(); setMode("login"); }} style={{ color: "var(--text-main)", fontWeight: 600 }}>Sign in</a></>
           )}
         </div>
       </div>

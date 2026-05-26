@@ -38,6 +38,83 @@
   --gradient-primary: linear-gradient(135deg, #0ea5e9 0%, #22d3ee 100%);
   --gradient-dark: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
   --gradient-card: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+
+  /* Sidebar & Nav */
+  --nav-bg: rgba(15, 23, 42, 0.95);
+  --sidebar-bg: rgba(15, 23, 42, 0.9);
+  --overlay-bg: rgba(15, 23, 42, 0.85);
+  --border-light: rgba(255, 255, 255, 0.1);
+  --hover-subtle: rgba(255, 255, 255, 0.05);
+  --primary-bg-subtle: rgba(14, 165, 233, 0.15);
+  --surface-card: #ffffff;
+  --header-bg: #ffffff;
+  --grid-color: rgba(14, 165, 233, 0.03);
+  --warning-bg: #fff7ed;
+  --success-bg: #f0fdf4;
+  --danger-bg: #fef2f2;
+  --loading-bg: #1e293b;
+}
+
+/* -- Dark Theme (default) -- */
+[data-theme="dark"] {
+  --grid-color: rgba(14, 165, 233, 0.06);
+  --bg-color: #0f172a;
+  --surface: #1a1f35;
+  --surface-hover: #23294a;
+  --glass-surface: rgba(30, 41, 59, 0.95);
+  --surface-card: #1e293b;
+  --header-bg: #1a1f35;
+  --text-main: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-light: #64748b;
+  --text-on-dark: #f8fafc;
+  --border-color: #2d3a5a;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+  --gradient-card: linear-gradient(180deg, #1e293b 0%, #1a1f35 100%);
+  --nav-bg: rgba(15, 23, 42, 0.98);
+  --sidebar-bg: rgba(15, 23, 42, 0.95);
+  --overlay-bg: rgba(0, 0, 0, 0.8);
+  --border-light: rgba(255, 255, 255, 0.08);
+  --hover-subtle: rgba(255, 255, 255, 0.06);
+  --primary-bg-subtle: rgba(14, 165, 233, 0.2);
+  --glow: 0 0 20px rgba(14, 165, 233, 0.3);
+  --warning-bg: rgba(245, 158, 11, 0.15);
+  --success-bg: rgba(34, 197, 94, 0.15);
+  --danger-bg: rgba(239, 68, 68, 0.15);
+  --loading-bg: #1a1f35;
+}
+
+/* -- Light Theme -- */
+[data-theme="light"] {
+  --grid-color: rgba(14, 165, 233, 0.08);
+  --bg-color: #f0f4f8;
+  --surface: #ffffff;
+  --surface-hover: #f1f5f9;
+  --glass-surface: rgba(255, 255, 255, 0.95);
+  --surface-card: #ffffff;
+  --header-bg: #ffffff;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --text-light: #94a3b8;
+  --text-on-dark: #1e293b;
+  --border-color: #e2e8f0;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --gradient-card: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  --nav-bg: rgba(255, 255, 255, 0.95);
+  --sidebar-bg: rgba(255, 255, 255, 0.95);
+  --overlay-bg: rgba(0, 0, 0, 0.5);
+  --border-light: rgba(0, 0, 0, 0.08);
+  --hover-subtle: rgba(0, 0, 0, 0.04);
+  --primary-bg-subtle: rgba(14, 165, 233, 0.1);
+  --glow: 0 0 15px rgba(14, 165, 233, 0.25);
+  --warning-bg: #fff7ed;
+  --success-bg: #f0fdf4;
+  --danger-bg: #fef2f2;
+  --loading-bg: #1e293b;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -45,8 +122,8 @@
 body {
   background-color: var(--bg-color);
   background-image: 
-    linear-gradient(rgba(14, 165, 233, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(14, 165, 233, 0.03) 1px, transparent 1px);
+    linear-gradient(var(--grid-color, rgba(14, 165, 233, 0.03)) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-color, rgba(14, 165, 233, 0.03)) 1px, transparent 1px);
   background-size: 40px 40px;
   color: var(--text-on-dark);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -165,10 +242,10 @@ h3 {
   border: 1px solid var(--border-color);
   border-radius: 8px;
   font-size: 0.95rem;
-  color: var(--text-main);
+  color: #1e293b;
   outline: none;
   transition: all 0.2s ease;
-  background: #fff;
+  background: #ffffff;
 }
 
 .field input:focus,
@@ -176,6 +253,12 @@ h3 {
 .field textarea:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.field input::placeholder,
+.field select::placeholder,
+.field textarea::placeholder {
+  color: var(--text-light);
 }
 
 /* ── Buttons ── */
@@ -212,7 +295,7 @@ h3 {
 }
 
 .btn-back {
-  background: #fff;
+  background: var(--surface);
   color: var(--text-main);
   border: 1px solid var(--border-color);
   padding: 8px 16px;
@@ -227,7 +310,7 @@ h3 {
 }
 
 .btn-outline {
-  background: #fff;
+  background: var(--surface);
   color: var(--primary);
   border: 1px solid var(--primary);
   width: 100%;
@@ -465,7 +548,7 @@ h3 {
   border-radius: 8px;
   margin-bottom: 24px;
   font-size: 0.9rem;
-  color: #92400e;
+  color: #78350f;
 }
 
 .insight-icon {

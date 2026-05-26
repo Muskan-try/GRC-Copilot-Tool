@@ -6,19 +6,19 @@ import { useToast } from "../components/Toast";
 const STORAGE_KEY = "enhanced_questionnaire_progress";
 
 const MATURITY_LEVELS = [
-  { val: 0, label: "Non-Existent", desc: "No recognizable process exists", color: "#ef4444" },
+  { val: 0, label: "Non-Existent", desc: "No recognizable process exists", color: "var(--danger)" },
   { val: 1, label: "Initial", desc: "Ad-hoc and disorganized processes", color: "#f87171" },
   { val: 2, label: "Developing", desc: "Basic processes emerging but informal", color: "#fb923c" },
   { val: 3, label: "Defined", desc: "Processes documented and standardized", color: "#fcd34d" },
   { val: 4, label: "Managed", desc: "Measured, controlled, and continuously improved", color: "#a3e635" },
-  { val: 5, label: "Optimized", desc: "Automated best practices with metrics-driven improvement", color: "#22c55e" },
+  { val: 5, label: "Optimized", desc: "Automated best practices with metrics-driven improvement", color: "var(--success)" },
 ];
 
 const COMPLIANCE_OPTIONS = [
-  { val: 0, label: "Yes", desc: "Fully meets the control requirement", color: "#22c55e" },
-  { val: 1, label: "Partial", desc: "Partially implements the control", color: "#f59e0b" },
-  { val: 2, label: "No", desc: "Does not meet the control requirement", color: "#ef4444" },
-  { val: 3, label: "N/A", desc: "Control does not apply", color: "#94a3b8" },
+  { val: 0, label: "Yes", desc: "Fully meets the control requirement", color: "var(--success)" },
+  { val: 1, label: "Partial", desc: "Partially implements the control", color: "var(--warning)" },
+  { val: 2, label: "No", desc: "Does not meet the control requirement", color: "var(--danger)" },
+  { val: 3, label: "N/A", desc: "Control does not apply", color: "var(--text-light)" },
 ];
 
 export default function QuestionnaireEnhanced() {
@@ -452,7 +452,7 @@ export default function QuestionnaireEnhanced() {
         </div>
 
         <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border-color)", marginTop: "auto" }}>
-          <div id="auto-answer-status" style={{ fontSize: "0.6rem", color: "#94a3b8", marginBottom: 6, textAlign: "center", minHeight: 16 }}>
+          <div id="auto-answer-status" style={{ fontSize: "0.6rem", color: "var(--text-light)", marginBottom: 6, textAlign: "center", minHeight: 16 }}>
             Upload a policy to auto-fill matching controls
           </div>
           <button
@@ -513,9 +513,9 @@ export default function QuestionnaireEnhanced() {
           )}
 
           {aiInsights[currentQuestion?.question_id] && (
-            <div className="ai-insight">
-              <span className="insight-icon">🤖</span>
-              <span>{aiInsights[currentQuestion?.question_id]}</span>
+            <div className="ai-insight" style={{ background: "var(--warning-bg)", borderLeft: "4px solid #f59e0b", borderRadius: 8, padding: 14, marginBottom: 20 }}>
+              <span className="insight-icon" style={{ fontSize: "1.2rem" }}>🤖</span>
+              <span style={{ color: "#78350f", fontWeight: 600, fontSize: "0.9rem", lineHeight: 1.4 }}>{aiInsights[currentQuestion?.question_id]}</span>
             </div>
           )}
 
@@ -574,7 +574,7 @@ export default function QuestionnaireEnhanced() {
                       style={{
                         backgroundColor: isSelected ? level.color : undefined,
                         borderColor: isSelected ? level.color : undefined,
-                        color: isSelected ? "#fff" : undefined,
+                        color: isSelected ? "var(--text-on-dark)" : undefined,
                       }}
                     >
                       <span className="maturity-val">{level.val}</span>
@@ -628,14 +628,14 @@ export default function QuestionnaireEnhanced() {
             </button>
 
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#94a3b8", background: "#f1f5f9", padding: "4px 12px", borderRadius: 20 }}>
+              <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--text-light)", background: "var(--surface-hover)", padding: "4px 12px", borderRadius: 20 }}>
                 {currentIndex + 1} / {questions.length}
               </span>
               <span className="weight-badge">Weight: {currentQuestion?.weight}x</span>
               {currentQuestion?.critical && <span className="critical-indicator">Critical</span>}
             </div>
 
-            <div style={{ fontSize: "0.8rem", color: "#94a3b8", fontWeight: 600, background: "#f1f5f9", padding: "4px 12px", borderRadius: 20 }}>
+            <div style={{ fontSize: "0.8rem", color: "var(--text-light)", fontWeight: 600, background: "var(--surface-hover)", padding: "4px 12px", borderRadius: 20 }}>
               {questions.length - currentIndex - 1} left
             </div>
           </div>

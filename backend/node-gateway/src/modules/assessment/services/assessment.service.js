@@ -94,7 +94,7 @@ class AssessmentService {
       `SELECT a.*, o.name as organization_name
        FROM assessments a
        JOIN organizations o ON a.org_id = o.id
-       WHERE a.id = $1 AND a.user_id = $2`,
+       WHERE a.id = $1 AND a.org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active')`,
       [assessmentId, userId]
     );
 

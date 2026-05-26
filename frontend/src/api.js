@@ -346,6 +346,70 @@ export async function getAuditStats() {
   return request('/audit/stats');
 }
 
+
+
+// ─── Collaboration / Team API ────────────────────────────────────────────
+
+export async function inviteTeamMember(orgId, email, role = 'member') {
+  return request('/collab/invite', { method: 'POST', body: { org_id: orgId, email, role } });
+}
+
+export async function acceptInvite(token) {
+  return request('/collab/accept-invite', { method: 'POST', body: { token } });
+}
+
+export async function listOrgMembers(orgId) {
+  return request(`/collab/members?org_id=${orgId}`);
+}
+
+export async function removeOrgMember(orgId, userId) {
+  return request(`/collab/members/${userId}?org_id=${orgId}`, { method: 'DELETE' });
+}
+
+export async function updateMemberRole(orgId, userId, role) {
+  return request(`/collab/members/${userId}/role?org_id=${orgId}`, { method: 'PUT', body: { role } });
+}
+
+export async function listPendingInvitations(orgId) {
+  return request(`/collab/invitations?org_id=${orgId}`);
+}
+
+export async function cancelInvitation(id) {
+  return request(`/collab/invitations/${id}`, { method: 'DELETE' });
+}
+
+export async function assignSection(assessmentId, userId, frameworkId) {
+  return request('/collab/assignments', { method: 'POST', body: { assessment_id: assessmentId, user_id: userId, framework_id: frameworkId } });
+}
+
+export async function getAssignments(assessmentId) {
+  return request(`/collab/assignments/${assessmentId}`);
+}
+
+export async function updateAssignmentStatus(id, status) {
+  return request(`/collab/assignments/${id}/status`, { method: 'PUT', body: { status } });
+}
+
+export async function getMyAssignments() {
+  return request('/collab/my-assignments');
+}
+
+export async function submitForReview(assessmentId, reviewerId) {
+  return request(`/collab/submit-review/${assessmentId}`, { method: 'POST', body: { reviewer_id: reviewerId } });
+}
+
+export async function reviewAssessment(assessmentId, status, feedback) {
+  return request(`/collab/review/${assessmentId}`, { method: 'POST', body: { status, feedback } });
+}
+
+export async function getReviewStatus(assessmentId) {
+  return request(`/collab/review-status/${assessmentId}`);
+}
+
+export async function getPendingReviews() {
+  return request('/collab/pending-reviews');
+}
+
 // ─── Compliance Calendar API ──────────────────────────────────────────────
 
 export async function getCalendarEvents(params = {}) {

@@ -7,11 +7,11 @@ const MONTHS = ["January","February","March","April","May","June","July","August
 const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 const TYPE_CONFIG = {
-  audit_date: { label: "Audit Date", color: "#3b82f6", bg: "#eff6ff" },
-  certification_expiry: { label: "Cert Expiry", color: "#ef4444", bg: "#fef2f2" },
-  policy_review: { label: "Policy Review", color: "#f59e0b", bg: "#fff7ed" },
-  regulatory_filing: { label: "Reg Filing", color: "#8b5cf6", bg: "#f5f3ff" },
-  custom: { label: "Custom", color: "#64748b", bg: "#f8fafc" },
+  audit_date: { label: "Audit Date", color: "var(--info)", bg: "var(--primary-bg-subtle)" },
+  certification_expiry: { label: "Cert Expiry", color: "var(--danger)", bg: "var(--danger-bg)" },
+  policy_review: { label: "Policy Review", color: "var(--warning)", bg: "var(--warning-bg)" },
+  regulatory_filing: { label: "Reg Filing", color: "var(--primary)", bg: "#f5f3ff" },
+  custom: { label: "Custom", color: "var(--text-muted)", bg: "var(--surface-hover)" },
 };
 
 function EventDot({ type }) {
@@ -94,16 +94,16 @@ export default function ComplianceCalendar() {
   };
 
   return (
-    <div style={{ padding: "40px 32px", background: "#f8fafc", minHeight: "100vh" }}>
+    <div style={{ padding: "40px 32px", background: "var(--surface-hover)", minHeight: "100vh" }}>
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
           <div>
-            <h1 style={{ fontSize: "1.75rem", fontWeight: 800, color: "#1e293b", margin: "0 0 4px 0" }}>Compliance Calendar</h1>
-            <p style={{ fontSize: "0.9rem", color: "#64748b", margin: 0 }}>Track audit dates, certification expiries, policy reviews, and regulatory deadlines</p>
+            <h1 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-main)", margin: "0 0 4px 0" }}>Compliance Calendar</h1>
+            <p style={{ fontSize: "0.9rem", color: "var(--text-muted)", margin: 0 }}>Track audit dates, certification expiries, policy reviews, and regulatory deadlines</p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <select value={filterType} onChange={e => { setFilterType(e.target.value); setLoading(true); }}
-              style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem", color: "#1e293b" }}>
+              style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem", color: "var(--text-main)" }}>
               <option value="">All Types</option>
               {Object.entries(TYPE_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
@@ -117,14 +117,14 @@ export default function ComplianceCalendar() {
           <div className="card" style={{ padding: 24, borderRadius: 12, maxWidth: "none" }}>
             {/* Month Nav */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <button onClick={prevMonth} style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: "0.9rem", fontWeight: 600, color: "#64748b" }}>&larr;</button>
-              <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "#1e293b" }}>{MONTHS[month-1]} {year}</h2>
-              <button onClick={nextMonth} style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: "0.9rem", fontWeight: 600, color: "#64748b" }}>&rarr;</button>
+              <button onClick={prevMonth} style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #e2e8f0", background: "var(--surface)", cursor: "pointer", fontSize: "0.9rem", fontWeight: 600, color: "var(--text-muted)" }}>&larr;</button>
+              <h2 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "var(--text-main)" }}>{MONTHS[month-1]} {year}</h2>
+              <button onClick={nextMonth} style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #e2e8f0", background: "var(--surface)", cursor: "pointer", fontSize: "0.9rem", fontWeight: 600, color: "var(--text-muted)" }}>&rarr;</button>
             </div>
 
             {/* Day Headers */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 8 }}>
-              {DAYS.map(d => <div key={d} style={{ textAlign: "center", fontSize: "0.75rem", fontWeight: 700, color: "#94a3b8", padding: "4px 0" }}>{d}</div>)}
+              {DAYS.map(d => <div key={d} style={{ textAlign: "center", fontSize: "0.75rem", fontWeight: 700, color: "var(--text-light)", padding: "4px 0" }}>{d}</div>)}
             </div>
 
             {/* Date Cells */}
@@ -138,7 +138,7 @@ export default function ComplianceCalendar() {
                 return (
                   <div key={day} style={{
                     minHeight: 80, padding: 6, borderRadius: 8,
-                    background: isToday ? "#eff6ff" : "#fff",
+                    background: isToday ? "var(--primary-bg-subtle)" : "var(--surface)",
                     border: isToday ? "2px solid #3b82f6" : "1px solid #f1f5f9",
                     cursor: "pointer", transition: "all 0.15s",
                   }}
@@ -148,14 +148,14 @@ export default function ComplianceCalendar() {
                       setShowForm(true);
                     }}
                   >
-                    <div style={{ fontSize: "0.85rem", fontWeight: isToday ? 800 : 600, color: isToday ? "#3b82f6" : "#1e293b", marginBottom: 4 }}>{day}</div>
+                    <div style={{ fontSize: "0.85rem", fontWeight: isToday ? 800 : 600, color: isToday ? "var(--info)" : "var(--text-main)", marginBottom: 4 }}>{day}</div>
                     {dayEvents.slice(0, 3).map(ev => (
                       <div key={ev.id} title={ev.title} onClick={e => { e.stopPropagation(); openEdit(ev); }}
                         style={{ fontSize: "0.65rem", padding: "2px 4px", borderRadius: 3, marginBottom: 2, background: (TYPE_CONFIG[ev.event_type] || TYPE_CONFIG.custom).bg, color: (TYPE_CONFIG[ev.event_type] || TYPE_CONFIG.custom).color, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer" }}>
                         {ev.title}
                       </div>
                     ))}
-                    {dayEvents.length > 3 && <div style={{ fontSize: "0.6rem", color: "#94a3b8", fontWeight: 600 }}>+{dayEvents.length - 3} more</div>}
+                    {dayEvents.length > 3 && <div style={{ fontSize: "0.6rem", color: "var(--text-light)", fontWeight: 600 }}>+{dayEvents.length - 3} more</div>}
                   </div>
                 );
               })}
@@ -166,9 +166,9 @@ export default function ComplianceCalendar() {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* Legend */}
             <div className="card" style={{ padding: 16, borderRadius: 10, maxWidth: "none" }}>
-              <h3 style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", margin: "0 0 12px 0" }}>Event Types</h3>
+              <h3 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--text-main)", margin: "0 0 12px 0" }}>Event Types</h3>
               {Object.entries(TYPE_CONFIG).map(([k, v]) => (
-                <div key={k} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontSize: "0.8rem", color: "#64748b" }}>
+                <div key={k} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, fontSize: "0.8rem", color: "var(--text-muted)" }}>
                   <EventDot type={k} /> {v.label}
                 </div>
               ))}
@@ -176,28 +176,28 @@ export default function ComplianceCalendar() {
 
             {/* Upcoming events */}
             <div className="card" style={{ padding: 16, borderRadius: 10, maxWidth: "none", flex: 1 }}>
-              <h3 style={{ fontSize: "0.85rem", fontWeight: 700, color: "#1e293b", margin: "0 0 12px 0" }}>
+              <h3 style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--text-main)", margin: "0 0 12px 0" }}>
                 {MONTHS[month-1]} Events ({events.length})
               </h3>
-              {loading ? <p style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Loading...</p> : events.length === 0 ? (
-                <p style={{ fontSize: "0.8rem", color: "#94a3b8" }}>No events this month</p>
+              {loading ? <p style={{ fontSize: "0.8rem", color: "var(--text-light)" }}>Loading...</p> : events.length === 0 ? (
+                <p style={{ fontSize: "0.8rem", color: "var(--text-light)" }}>No events this month</p>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {events.map(ev => (
-                    <div key={ev.id} style={{ padding: "10px 12px", borderRadius: 8, background: "#f8fafc", border: "1px solid #f1f5f9" }}>
+                    <div key={ev.id} style={{ padding: "10px 12px", borderRadius: 8, background: "var(--surface-hover)", border: "1px solid #f1f5f9" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                         <div style={{ flex: 1 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
                             <EventDot type={ev.event_type} />
-                            <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1e293b" }}>{ev.title}</span>
+                            <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--text-main)" }}>{ev.title}</span>
                           </div>
-                          <div style={{ fontSize: "0.7rem", color: "#94a3b8", marginLeft: 14 }}>
+                          <div style={{ fontSize: "0.7rem", color: "var(--text-light)", marginLeft: 14 }}>
                             {(TYPE_CONFIG[ev.event_type] || TYPE_CONFIG.custom).label} &middot; {new Date(ev.event_date).toLocaleDateString()}
                             {ev.framework && <span> &middot; {ev.framework}</span>}
                           </div>
                         </div>
                         <button onClick={() => handleDelete(ev.id)}
-                          style={{ background: "none", border: "none", color: "#ef4444", fontSize: "0.8rem", cursor: "pointer", padding: "2px 6px" }}>&times;</button>
+                          style={{ background: "none", border: "none", color: "var(--danger)", fontSize: "0.8rem", cursor: "pointer", padding: "2px 6px" }}>&times;</button>
                       </div>
                     </div>
                   ))}
@@ -212,13 +212,13 @@ export default function ComplianceCalendar() {
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(15,23,42,0.85)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
             onClick={() => setShowForm(false)}>
             <div className="card" style={{ maxWidth: 480, padding: 32, position: "relative" }} onClick={e => e.stopPropagation()}>
-              <button onClick={() => setShowForm(false)} style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", fontSize: "1.5rem", cursor: "pointer", color: "#94a3b8" }}>&times;</button>
-              <h3 style={{ fontSize: "1.2rem", fontWeight: 700, color: "#1e293b", marginBottom: 20 }}>{editing ? "Edit Event" : "New Event"}</h3>
+              <button onClick={() => setShowForm(false)} style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", fontSize: "1.5rem", cursor: "pointer", color: "var(--text-light)" }}>&times;</button>
+              <h3 style={{ fontSize: "1.2rem", fontWeight: 700, color: "var(--text-main)", marginBottom: 20 }}>{editing ? "Edit Event" : "New Event"}</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <input placeholder="Event title" value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))}
                   style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }} />
                 <select value={form.event_type} onChange={e => setForm(f => ({...f, event_type: e.target.value}))}
-                  style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem", color: "#1e293b" }}>
+                  style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem", color: "var(--text-main)" }}>
                   {Object.entries(TYPE_CONFIG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
                 <input type="date" value={form.event_date} onChange={e => setForm(f => ({...f, event_date: e.target.value}))}
@@ -228,7 +228,7 @@ export default function ComplianceCalendar() {
                 <textarea placeholder="Description (optional)" value={form.description} onChange={e => setForm(f => ({...f, description: e.target.value}))} rows={3}
                   style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem", resize: "vertical" }} />
                 <div>
-                  <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Reminder before (days)</label>
+                  <label style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>Reminder before (days)</label>
                   <select value={form.reminder_days} onChange={e => setForm(f => ({...f, reminder_days: parseInt(e.target.value)}))}
                     style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem", width: "100%" }}>
                     <option value={0}>Same day</option><option value={7}>7 days before</option><option value={14}>14 days before</option>

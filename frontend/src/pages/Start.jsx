@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { logout, getCurrentUser, listDashboards } from "../api";
 import { useToast } from "../components/Toast";
+import { useTheme } from "../contexts/ThemeContext";
 
 const ASSESSMENT_INFO = [
   {
@@ -108,10 +109,12 @@ function safeScore(val) {
 export default function Start() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { theme, toggleTheme } = useTheme();
   const user = getCurrentUser();
   const [assessments, setAssessments] = useState([]);
   const [overlayInfo, setOverlayInfo] = useState(null);
   const [activeSummary, setActiveSummary] = useState(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const fetchStats = async () => {
     try {
@@ -172,6 +175,10 @@ export default function Start() {
   }, [assessments]);
 
   const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
     logout();
     navigate("/");
   };
@@ -197,7 +204,7 @@ export default function Start() {
       <div
         style={{
           width: 280,
-          background: "rgba(15, 23, 42, 0.9)",
+          background: "var(--sidebar-bg)",
           borderRight: "1px solid var(--cyber-border)",
           display: "flex",
           flexDirection: "column",
@@ -237,7 +244,7 @@ export default function Start() {
                 color: "var(--text-on-dark)",
                 borderLeft: "3px solid transparent",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.05)")}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--hover-subtle)")}
               onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
               <span style={{ fontSize: "1.2rem" }}>{item.icon}</span>
@@ -246,15 +253,57 @@ export default function Start() {
           ))}
         </nav>
 
-        <div style={{ padding: "24px", borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", flexDirection: "column", gap: 8 }}>
-          <button className="btn btn-back" style={{ width: "100%", marginBottom: 0 }} onClick={() => navigate("/audit-logs")}>
-            Audit Trail
-          </button>
-          <button className="btn btn-back" style={{ width: "100%", marginBottom: 0 }} onClick={() => navigate("/compliance-calendar")}>
-            Calendar
-          </button>
-          <button className="btn btn-back" style={{ width: "100%", marginBottom: 0 }} onClick={handleLogout}>
-            Logout
+        <div style={{ padding: "24px", borderTop: "1px solid var(--border-light)", display: "flex", flexDirection: "column", gap: 0 }}>
+          {[
+            { label: "Audit Trail", path: "/audit-logs" },
+            { label: "Calendar", path: "/compliance-calendar" },
+            { label: "Team", path: "/team" },
+          ].map((item) => (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              style={{
+                width: "100%",
+                padding: "16px 24px",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                textAlign: "left",
+                transition: "all 0.2s ease",
+                color: "var(--text-on-dark)",
+                borderLeft: "3px solid transparent",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--hover-subtle)")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+            >
+              <span style={{ fontSize: "1.2rem" }}>{item.label === "Audit Trail" ? "\u{1F50D}" : item.label === "Calendar" ? "\u{1F4C5}" : "\u{1F91D}"}</span>
+              <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>{item.label}</span>
+            </button>
+          ))}
+          <button
+            onClick={handleLogout}
+            style={{
+              width: "100%",
+              padding: "16px 24px",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              textAlign: "left",
+              transition: "all 0.2s ease",
+              color: "var(--danger)",
+              borderLeft: "3px solid transparent",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "var(--hover-subtle)")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          >
+            <span style={{ fontSize: "1.2rem" }}>{"\u{1F6AA}"}</span>
+            <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>Logout</span>
           </button>
         </div>
       </div>
@@ -278,7 +327,7 @@ export default function Start() {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            background: "#fff",
+            background: "var(--header-bg)",
             position: "sticky",
             top: 0,
             zIndex: 10,
@@ -290,19 +339,62 @@ export default function Start() {
               fontSize: "1.5rem",
               fontWeight: 900,
               letterSpacing: "-0.03em",
-              color: "var(--bg-color)",
+              color: "var(--text-main)",
             }}
           >
             GRC tool <span style={{ color: "var(--primary)", fontWeight: 400 }}>Dashboard</span>
           </h1>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div
+              onClick={toggleTheme}
+              title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                cursor: "pointer",
+                userSelect: "none",
+              }}
+            >
+              <span style={{ fontSize: "0.85rem", color: theme === "dark" ? "var(--text-light)" : "var(--warning)", transition: "color 0.2s" }}>
+                {"\u2600\uFE0F"}
+              </span>
+              <div
+                style={{
+                  width: 36,
+                  height: 20,
+                  borderRadius: 10,
+                  background: theme === "dark" ? "var(--primary)" : "#cbd5e1",
+                  position: "relative",
+                  transition: "background 0.2s",
+                }}
+              >
+                <div
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: "50%",
+                    background: "#fff",
+                    position: "absolute",
+                    top: 2,
+                    left: theme === "dark" ? 18 : 2,
+                    transition: "left 0.2s",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                  }}
+                />
+              </div>
+              <span style={{ fontSize: "0.85rem", color: theme === "dark" ? "var(--warning)" : "var(--text-light)", transition: "color 0.2s" }}>
+                {"\u{1F319}"}
+              </span>
+            </div>
+            <span style={{ color: "var(--border-color)", fontSize: "0.8rem" }}>|</span>
             <button
               onClick={fetchStats}
               style={{
                 padding: "6px 14px",
                 borderRadius: 8,
                 border: "1px solid var(--border-color)",
-                background: "#fff",
+                background: "var(--header-bg)",
                 color: "var(--text-muted)",
                 fontSize: "0.8rem",
                 fontWeight: 600,
@@ -347,7 +439,7 @@ export default function Start() {
                 </div>
               </div>
 
-              <div className="card" style={{ padding: 32, textAlign: "left", borderLeft: "6px solid #22c55e" }}>
+              <div className="card" style={{ padding: 32, textAlign: "left", borderLeft: "6px solid var(--success)" }}>
                 <div
                   style={{
                     fontSize: "0.8rem",
@@ -361,14 +453,14 @@ export default function Start() {
                 </div>
                 <div style={{ display: "flex", gap: 24, alignItems: "center", marginTop: 8 }}>
                   <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }} onClick={() => setActiveSummary({ status: 'complete', type: null })}>
-                    <span style={{ fontSize: "1.8rem", fontWeight: 800, color: "#22c55e" }}>
+                    <span style={{ fontSize: "1.8rem", fontWeight: 800, color: "var(--success)" }}>
                       {assessments.filter((a) => a.status === "complete").length}
                     </span>
                     <span style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginLeft: 8 }}>Done</span>
                   </div>
                   <div style={{ width: 1, height: 30, background: "var(--border-color)" }}></div>
                   <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }} onClick={() => setActiveSummary({ status: 'pending', type: null })}>
-                    <span style={{ fontSize: "1.8rem", fontWeight: 800, color: "#f59e0b" }}>
+                    <span style={{ fontSize: "1.8rem", fontWeight: 800, color: "var(--warning)" }}>
                       {assessments.filter((a) => a.status !== "complete").length}
                     </span>
                     <span style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginLeft: 8 }}>In Progress</span>
@@ -451,7 +543,7 @@ export default function Start() {
                             </div>
                           </div>
                           <div style={{ textAlign: "center", cursor: 'pointer' }} onClick={() => setActiveSummary({ status: 'pending', type: type })}>
-                            <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "#f59e0b" }}>{group.pending}</div>
+                            <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "var(--warning)" }}>{group.pending}</div>
                             <div
                               style={{
                                 fontSize: "0.7rem",
@@ -512,7 +604,7 @@ export default function Start() {
             left: 0,
             right: 0,
             bottom: 0,
-            background: "rgba(15, 23, 42, 0.85)",
+            background: "var(--overlay-bg)",
             backdropFilter: "blur(4px)",
             display: "flex",
             alignItems: "center",
@@ -641,7 +733,7 @@ export default function Start() {
             left: 0,
             right: 0,
             bottom: 0,
-            background: "rgba(15, 23, 42, 0.85)",
+            background: "var(--overlay-bg)",
             backdropFilter: "blur(4px)",
             display: "flex",
             alignItems: "center",
@@ -742,6 +834,56 @@ export default function Start() {
                         )}
                     </tbody>
                 </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LOGOUT CONFIRM MODAL */}
+      {showLogoutConfirm && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "var(--overlay-bg)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1100,
+          }}
+          onClick={() => setShowLogoutConfirm(false)}
+        >
+          <div
+            className="card"
+            style={{ maxWidth: 400, padding: 40, textAlign: "center" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: "3rem", marginBottom: 16 }}>{"\u{1F6AA}"}</div>
+            <h2 style={{ margin: "0 0 8px 0", fontSize: "1.3rem", fontWeight: 700, color: "var(--text-main)" }}>
+              Leave so soon?
+            </h2>
+            <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginBottom: 28 }}>
+              Are you sure you want to log out? Any unsaved data will be lost.
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                className="btn btn-primary"
+                style={{ margin: 0 }}
+                onClick={confirmLogout}
+              >
+                Logout
+              </button>
+              <button
+                className="btn btn-outline"
+                style={{ margin: 0 }}
+                onClick={() => setShowLogoutConfirm(false)}
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

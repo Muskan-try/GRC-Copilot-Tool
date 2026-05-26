@@ -28,6 +28,27 @@ const authenticate = async (req, res, next) => {
       role: result.rows[0].role,
     };
 
+    try {
+      const orgResult = await query(
+        `SELECT om.org_id, om.role AS org_role, om.status AS org_status
+         FROM org_members om
+         WHERE om.user_id = $1 AND om.status = 'active'
+         ORDER BY om.role = 'owner' DESC
+         LIMIT 1`,
+        [decoded.user_id]
+      );
+      if (orgResult.rows.length) {
+        req.user.org_id = orgResult.rows[0].org_id;
+        req.user.org_role = orgResult.rows[0].org_role;
+      } else {
+        req.user.org_id = null;
+        req.user.org_role = null;
+      }
+    } catch (_) {
+      req.user.org_id = null;
+      req.user.org_role = null;
+    }
+
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {

@@ -20,6 +20,7 @@ const aiRoutes = require('./routes/ai.routes');
 const complianceAgentRoutes = require('./routes/compliance-agent.routes');
 const auditRoutes = require('./routes/audit.routes');
 const calendarRoutes = require('./routes/calendar.routes');
+const collabRoutes = require('./routes/collaboration.routes');
 
 // Module Routes (v2)
 const v2AssessmentRoutes = require('./modules/assessment/routes/assessment.routes');
@@ -33,7 +34,12 @@ const { notFound } = require('./middleware/notFound');
 const app = express();
 
 app.set('etag', false);
-app.use(helmet());
+const passport = require('./config/passport');
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginOpenerPolicy: false,
+}));
+app.use(passport.initialize());
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], allowedHeaders: ['Content-Type', 'Authorization'] }));
 
 const limiter = rateLimit({
@@ -58,6 +64,7 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/agent/compliance', complianceAgentRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/calendar', calendarRoutes);
+app.use('/api/collab', collabRoutes);
 
 // V2 Modular Routes
 app.use('/api/v2/assessment', v2AssessmentRoutes);

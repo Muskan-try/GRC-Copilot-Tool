@@ -15,6 +15,8 @@ import ReportV2 from "./pages/ReportV2";
 import ComplianceAgent from "./pages/ComplianceAgent";
 import AuditLogs from "./pages/AuditLogs";
 import ComplianceCalendar from "./pages/ComplianceCalendar";
+import TeamManagement from "./pages/TeamManagement";
+import OAuthCallback from "./pages/OAuthCallback";
 
 function RequireAuth({ children }) {
   return isAuthenticated() ? children : <Navigate to="/" replace />;
@@ -39,6 +41,9 @@ export default function App() {
               <Route path="/agent" element={<RequireAuth><ComplianceAgent /></RequireAuth>} />
               <Route path="/audit-logs" element={<RequireAuth><AuditLogs /></RequireAuth>} />
               <Route path="/compliance-calendar" element={<RequireAuth><ComplianceCalendar /></RequireAuth>} />
+              <Route path="/team" element={<RequireAuth><TeamManagement /></RequireAuth>} />
+              <Route path="/accept-invite" element={<RequireAuth><TeamManagement /></RequireAuth>} />
+              <Route path="/oauth-callback" element={<OAuthCallback />} />
               {/* Legacy redirects */}
               <Route path="/dashboard" element={<Navigate to="/start" replace />} />
               <Route path="/report" element={<Navigate to="/start" replace />} />

@@ -240,7 +240,7 @@ async def auto_answer(
                     """SELECT COUNT(*) as cnt FROM questions q
                        JOIN assessment_frameworks af ON q.framework_id = af.framework_id
                        WHERE af.assessment_id = $1 AND q.is_active = true
-                       AND q.depth_levels && $2::varchar[]""",
+                       AND q.depth_levels && $2::text[]""",
                     assessment_id, depth_filter
                 )
                 total_questions = total_result["cnt"] if total_result else 0

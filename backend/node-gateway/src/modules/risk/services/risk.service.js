@@ -150,7 +150,7 @@ class RiskService {
        FROM risks r
        JOIN assessments a ON r.assessment_id = a.id
        LEFT JOIN controls c ON r.control_id = c.id
-       WHERE a.id = $1 AND a.user_id = $2
+       WHERE a.id = $1 AND a.org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active')
        ORDER BY 
          CASE r.severity 
            WHEN 'critical' THEN 1 

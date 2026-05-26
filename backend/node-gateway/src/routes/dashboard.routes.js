@@ -14,7 +14,7 @@ router.get('/:assessmentId', authenticate, async (req, res, next) => {
       `SELECT a.*, o.name AS org_name, o.industry, o.region, o.frameworks
        FROM assessments a
        JOIN organizations o ON o.id = a.org_id
-       WHERE a.id = $1 AND a.user_id = $2`,
+       WHERE a.id = $1 AND a.org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active')`,
       [assessmentId, req.user.user_id]
     );
 
@@ -115,7 +115,7 @@ router.get('/', authenticate, async (req, res, next) => {
               o.name AS org_name, o.industry
        FROM assessments a
        JOIN organizations o ON o.id = a.org_id
-       WHERE a.user_id = $1
+       WHERE a.org_id IN (SELECT org_id FROM org_members WHERE user_id = $1 AND status = 'active')
        ORDER BY a.created_at DESC
        LIMIT 20`,
       [req.user.user_id]

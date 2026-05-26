@@ -3,11 +3,14 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const { query } = require('../config/postgres');
+const passport = require('../config/passport');
 const { authenticate } = require('../middleware/auth');
 const logger = require('../config/logger');
 const audit = require('../services/audit.service');
 
 const router = express.Router();
+
+const FRONTEND_URL = (process.env.CORS_ORIGIN || 'http://localhost:5173').split(',')[0];
 
 // ─── POST /api/auth/register ───────────────────────────────────────────────
 router.post(
@@ -54,6 +57,14 @@ router.post(
          VALUES ($1, $2)
          RETURNING id, name`,
         [user.id, org_name]
+      );
+
+      // Add creator as org_member with owner role
+      await query(
+        `INSERT INTO org_members (org_id, user_id, role, status, invited_by)
+         VALUES ($1, $2, 'owner', 'active', $2)
+         ON CONFLICT (org_id, user_id) DO NOTHING`,
+        [orgResult.rows[0].id, user.id]
       );
 
       // Issue JWT
@@ -230,6 +241,60 @@ router.put(
       next(err);
     }
   }
+);
+
+// ─── OAuth Routes ──────────────────────────────────────────────────────────
+
+// Helper: issue JWT and redirect to frontend
+function oauthCallback(req, res) {
+  const payload = {
+    user_id: req.user.id,
+    email: req.user.email,
+    role: req.user.role,
+  };
+  const token = jwt.sign(
+    payload,
+    process.env.JWT_SECRET,
+    { expiresIn: parseInt(process.env.JWT_EXPIRES_IN) || 86400 }
+  );
+  audit.log(req.user.id, audit.AUDIT_ACTIONS.USER_LOGIN, 'user', req.user.id, { provider: req.params.provider || 'oauth' }, req).catch(() => {});
+  res.redirect(`${FRONTEND_URL}/oauth-callback?token=${token}`);
+}
+
+// Guard: check provider is fully configured before redirecting
+function oauthGuard(provider) {
+  return (req, res, next) => {
+    const clientId = process.env[`${provider.toUpperCase()}_CLIENT_ID`];
+    const clientSecret = process.env[`${provider.toUpperCase()}_CLIENT_SECRET`];
+    if (!clientId || !clientSecret) {
+      return res.status(501).json({ error: `${provider} OAuth not configured. Set ${provider.toUpperCase()}_CLIENT_ID and ${provider.toUpperCase()}_CLIENT_SECRET env vars.` });
+    }
+    // Also check that Passport strategy is actually registered
+    if (!passport._strategies || !passport._strategies[provider]) {
+      return res.status(501).json({ error: `${provider} strategy not available.` });
+    }
+    next();
+  };
+}
+
+// GET /api/auth/google
+router.get('/google', oauthGuard('google'), passport.authenticate('google', { session: false, scope: ['profile', 'email'] }));
+
+// GET /api/auth/google/callback
+router.get('/google/callback',
+  oauthGuard('google'),
+  passport.authenticate('google', { session: false, failureRedirect: `${FRONTEND_URL}/?error=google_auth_failed` }),
+  (req, res) => oauthCallback(req, res)
+);
+
+// GET /api/auth/microsoft
+router.get('/microsoft', oauthGuard('microsoft'), passport.authenticate('microsoft', { session: false }));
+
+// GET /api/auth/microsoft/callback
+router.get('/microsoft/callback',
+  oauthGuard('microsoft'),
+  passport.authenticate('microsoft', { session: false, failureRedirect: `${FRONTEND_URL}/?error=microsoft_auth_failed` }),
+  (req, res) => oauthCallback(req, res)
 );
 
 module.exports = router;

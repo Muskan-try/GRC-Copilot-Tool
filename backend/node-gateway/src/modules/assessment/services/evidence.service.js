@@ -19,7 +19,7 @@ class EvidenceService {
 
     // 1. Verify assessment ownership
     const assessResult = await query(
-      'SELECT id FROM assessments WHERE id = $1 AND user_id = $2',
+      'SELECT a.id FROM assessments a JOIN org_members om ON om.org_id = a.org_id WHERE a.id = $1 AND om.user_id = $2 AND om.status = \'active\'',
       [assessmentId, userId]
     );
     if (assessResult.rows.length === 0) {
@@ -111,7 +111,7 @@ class EvidenceService {
       `SELECT ef.id, ef.original_name, ef.question_id, ef.file_size, ef.mime_type, ef.uploaded_at, ef.file_path
        FROM evidence_files ef
        JOIN assessments a ON ef.assessment_id = a.id
-       WHERE a.id = $1 AND a.user_id = $2`,
+       WHERE a.id = $1 AND a.org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active')`,
       [assessmentId, userId]
     );
     return result.rows;

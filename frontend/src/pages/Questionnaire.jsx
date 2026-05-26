@@ -81,7 +81,7 @@ export default function Questionnaire() {
                     <div style={{ 
                       width: 24, height: 24, borderRadius: "50%", 
                       background: isOpen ? "var(--primary)" : "var(--border-color)",
-                      display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: "0.7rem"
+                      display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-on-dark)", fontSize: "0.7rem"
                     }}>
                       {sIdx + 1}
                     </div>

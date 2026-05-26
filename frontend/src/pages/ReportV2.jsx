@@ -20,7 +20,7 @@ function RiskRadar({ data }) {
         return `${x},${y}`;
       })
       .join(" ");
-    return <polygon key={i} points={points} fill="none" stroke="#f1f5f9" strokeWidth="1" />;
+    return <polygon key={i} points={points} fill="none" stroke="var(--surface-hover)" strokeWidth="1" />;
   });
 
   const dataPoints = domains
@@ -46,7 +46,7 @@ function RiskRadar({ data }) {
           const x = center + (radius + 35) * Math.cos(idx * angleStep - Math.PI / 2);
           const y = center + (radius + 35) * Math.sin(idx * angleStep - Math.PI / 2);
           return (
-            <text key={idx} x={x} y={y} fontSize="9" textAnchor="middle" fill="#94a3b8" fontWeight="700">
+            <text key={idx} x={x} y={y} fontSize="9" textAnchor="middle" fill="var(--text-light)" fontWeight="700">
               {d.name?.substring(0, 15)}
             </text>
           );
@@ -56,7 +56,7 @@ function RiskRadar({ data }) {
           const scale = (d.score || 0) / 100;
           const x = center + radius * scale * Math.cos(idx * angleStep - Math.PI / 2);
           const y = center + radius * scale * Math.sin(idx * angleStep - Math.PI / 2);
-          return <circle key={idx} cx={x} cy={y} r="4" fill="var(--primary)" stroke="#fff" strokeWidth="2" />;
+          return <circle key={idx} cx={x} cy={y} r="4" fill="var(--primary)" stroke="var(--text-on-dark)" strokeWidth="2" />;
         })}
       </svg>
     </div>
@@ -68,23 +68,23 @@ function RiskHeatMap({ risks }) {
   const gridSize = 50;
 
   return (
-    <div style={{ padding: 24, background: "#fff", borderRadius: 16, border: "1px solid #f1f5f9" }}>
+    <div style={{ padding: 24, background: "var(--text-on-dark)", borderRadius: 16, border: "1px solid #f1f5f9" }}>
       <div style={{ display: "grid", gridTemplateColumns: "40px repeat(5, 1fr)", gap: 6 }}>
         <div />
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} style={{ textAlign: "center", fontSize: "0.65rem", color: "#94a3b8", fontWeight: 800 }}>
+          <div key={i} style={{ textAlign: "center", fontSize: "0.65rem", color: "var(--text-light)", fontWeight: 800 }}>
             IMP {i}
           </div>
         ))}
         {levels.map((likelihood) => (
           <span key={likelihood}>
-            <div style={{ alignSelf: "center", fontSize: "0.65rem", color: "#94a3b8", fontWeight: 800 }}>
+            <div style={{ alignSelf: "center", fontSize: "0.65rem", color: "var(--text-light)", fontWeight: 800 }}>
               L{likelihood}
             </div>
             {[1, 2, 3, 4, 5].map((impact) => {
               const score = likelihood * impact;
-              const color = score >= 15 ? "#fee2e2" : score >= 8 ? "#fef3c7" : "#f0fdf4";
-              const dotColor = score >= 15 ? "#ef4444" : score >= 8 ? "#f59e0b" : "#22c55e";
+              const color = score >= 15 ? "var(--danger-bg)" : score >= 8 ? "var(--warning-bg)" : "var(--success-bg)";
+              const dotColor = score >= 15 ? "var(--danger)" : score >= 8 ? "var(--warning)" : "var(--success)";
               const count = (risks || []).filter((r) => r.likelihood === likelihood && r.impact === impact).length;
 
               return (
@@ -93,7 +93,7 @@ function RiskHeatMap({ risks }) {
                   style={{
                     height: gridSize,
                     background: color,
-                    border: "1px solid #fff",
+                    border: "1px solid var(--border-color)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -108,7 +108,7 @@ function RiskHeatMap({ risks }) {
                         height: 26,
                         background: dotColor,
                         borderRadius: "50%",
-                        color: "#fff",
+                        color: "var(--text-on-dark)",
                         fontSize: "0.8rem",
                         fontWeight: "900",
                         display: "flex",
@@ -128,14 +128,14 @@ function RiskHeatMap({ risks }) {
         ))}
       </div>
       <div style={{ display: "flex", justifyContent: "center", gap: 20, marginTop: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.65rem", color: "#64748b" }}>
-          <div style={{ width: 10, height: 10, borderRadius: 2, background: "#f0fdf4" }} /> Low Risk
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.65rem", color: "var(--text-muted)" }}>
+          <div style={{ width: 10, height: 10, borderRadius: 2, background: "var(--success-bg)" }} /> Low Risk
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.65rem", color: "#64748b" }}>
-          <div style={{ width: 10, height: 10, borderRadius: 2, background: "#fef3c7" }} /> Medium Risk
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.65rem", color: "var(--text-muted)" }}>
+          <div style={{ width: 10, height: 10, borderRadius: 2, background: "var(--warning-bg)" }} /> Medium Risk
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.65rem", color: "#64748b" }}>
-          <div style={{ width: 10, height: 10, borderRadius: 2, background: "#fee2e2" }} /> High/Critical
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.65rem", color: "var(--text-muted)" }}>
+          <div style={{ width: 10, height: 10, borderRadius: 2, background: "var(--danger-bg)" }} /> High/Critical
         </div>
       </div>
     </div>
@@ -178,11 +178,11 @@ export default function ReportV2() {
 
   if (loading) {
     return (
-      <div className="page" style={{ background: "#f8fafc" }}>
+      <div className="page" style={{ background: "var(--surface-hover)" }}>
         <div style={{ textAlign: "center" }}>
           <div className="loader" style={{ margin: "0 auto 20px" }}></div>
-          <h1 style={{ color: "#1e293b", fontSize: "1.5rem" }}>Architecting CISO Report...</h1>
-          <p style={{ color: "#64748b" }}>Synthesizing compliance data and calculating risk vectors.</p>
+          <h1 style={{ color: "var(--text-main)", fontSize: "1.5rem" }}>Architecting CISO Report...</h1>
+          <p style={{ color: "var(--text-muted)" }}>Synthesizing compliance data and calculating risk vectors.</p>
         </div>
       </div>
     );
@@ -190,10 +190,10 @@ export default function ReportV2() {
 
   if (error) {
     return (
-      <div className="page" style={{ background: "#f8fafc" }}>
+      <div className="page" style={{ background: "var(--surface-hover)" }}>
         <div className="card" style={{ maxWidth: 500, textAlign: "center", borderTop: "4px solid #ef4444" }}>
-          <h1 style={{ color: "#ef4444", marginBottom: 16 }}>Assessment Error</h1>
-          <p style={{ color: "#64748b", marginBottom: 24 }}>{error}</p>
+          <h1 style={{ color: "var(--danger)", marginBottom: 16 }}>Assessment Error</h1>
+          <p style={{ color: "var(--text-muted)", marginBottom: 24 }}>{error}</p>
           <button className="btn btn-primary" onClick={() => navigate("/start")}>
             Restart Assessment
           </button>
@@ -204,7 +204,7 @@ export default function ReportV2() {
 
   if (!data) {
     return (
-      <div className="page" style={{ background: "#f8fafc" }}>
+      <div className="page" style={{ background: "var(--surface-hover)" }}>
         <div className="card" style={{ textAlign: "center" }}>
           <h1>No Report Data</h1>
           <p>Could not generate report. Please try again.</p>
@@ -229,7 +229,7 @@ export default function ReportV2() {
     <div
       className="page"
       style={{
-        background: "#f1f5f9",
+        background: "var(--surface-hover)",
         justifyContent: "flex-start",
         paddingTop: 40,
         paddingBottom: 80,
@@ -256,19 +256,19 @@ export default function ReportV2() {
       >
         <button
           className="btn btn-back"
-          style={{ background: "#fff", color: "#1e293b", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", margin: 0 }}
+          style={{ background: "var(--surface)", color: "var(--text-main)", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", margin: 0 }}
           onClick={() => navigate(-1)}
         >
           ← Exit
         </button>
         <button
           className="btn btn-outline"
-          style={{ background: "#fff", color: "#1e293b", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", margin: 0 }}
+          style={{ background: "var(--surface)", color: "var(--text-main)", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", margin: 0 }}
           onClick={() => navigate(`/dashboard-v2/${id || sessionStorage.getItem("assessmentId")}`)}
         >
           Dashboard
         </button>
-        <div style={{ background: "#fff", padding: "4px 12px", borderRadius: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.1)", display: "flex", alignItems: "center", height: 44 }}>
+        <div style={{ background: "var(--surface)", padding: "4px 12px", borderRadius: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.1)", display: "flex", alignItems: "center", height: 44 }}>
           <CurrencySelector selectedCurrency={selectedCurrency} onCurrencyChange={setSelectedCurrency} />
         </div>
       </div>
@@ -287,8 +287,8 @@ export default function ReportV2() {
         <div
           style={{
             padding: "60px 80px",
-            background: "#0f172a",
-            color: "#fff",
+            background: "var(--loading-bg)",
+            color: "var(--text-on-dark)",
             position: "relative",
             overflow: "hidden",
           }}
@@ -310,7 +310,7 @@ export default function ReportV2() {
                 <div
                   style={{
                     background: "var(--primary)",
-                    color: "#fff",
+                    color: "var(--text-on-dark)",
                     display: "inline-block",
                     padding: "6px 14px",
                     borderRadius: 6,
@@ -328,20 +328,20 @@ export default function ReportV2() {
                   <br />
                   <span style={{ color: "var(--primary)" }}>Assessment Report</span>
                 </h1>
-                <div style={{ marginTop: 40, display: "flex", gap: 40, fontSize: "0.95rem", color: "#94a3b8" }}>
+                <div style={{ marginTop: 40, display: "flex", gap: 40, fontSize: "0.95rem", color: "var(--text-light)" }}>
                   <div>
                     <div
                       style={{
                         fontSize: "0.65rem",
                         textTransform: "uppercase",
                         fontWeight: 800,
-                        color: "#64748b",
+                        color: "var(--text-muted)",
                         marginBottom: 4,
                       }}
                     >
                       Organization
                     </div>
-                    <div style={{ color: "#fff", fontWeight: 700 }}>{report_metadata.organization || "N/A"}</div>
+                    <div style={{ color: "var(--text-on-dark)", fontWeight: 700 }}>{report_metadata.organization || "N/A"}</div>
                   </div>
                   <div>
                     <div
@@ -349,7 +349,7 @@ export default function ReportV2() {
                         fontSize: "0.65rem",
                         textTransform: "uppercase",
                         fontWeight: 800,
-                        color: "#64748b",
+                        color: "var(--text-muted)",
                         marginBottom: 4,
                       }}
                     >
@@ -363,13 +363,13 @@ export default function ReportV2() {
                         fontSize: "0.65rem",
                         textTransform: "uppercase",
                         fontWeight: 800,
-                        color: "#64748b",
+                        color: "var(--text-muted)",
                         marginBottom: 4,
                       }}
                     >
                       Audit Cycle
                     </div>
-                    <div style={{ color: "#fff", fontWeight: 700 }}>Q2 2026</div>
+                    <div style={{ color: "var(--text-on-dark)", fontWeight: 700 }}>Q2 2026</div>
                   </div>
                 </div>
               </div>
@@ -380,7 +380,7 @@ export default function ReportV2() {
                     height: 140,
                     background: "rgba(255,255,255,0.03)",
                     borderRadius: "50%",
-                    border: "1px solid rgba(255,255,255,0.1)",
+                    border: "1px solid var(--border-light)",
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
@@ -394,7 +394,7 @@ export default function ReportV2() {
                     style={{
                       fontSize: "0.6rem",
                       fontWeight: 800,
-                      color: "#94a3b8",
+                      color: "var(--text-light)",
                       textTransform: "uppercase",
                       marginTop: 4,
                     }}
@@ -413,13 +413,13 @@ export default function ReportV2() {
             <div className="section-title">01. Executive Summary</div>
             <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 40 }}>
               <div>
-                <p style={{ fontSize: "1.1rem", lineHeight: 1.7, color: "#334155", margin: 0 }}>{executive_summary}</p>
+                <p style={{ fontSize: "1.1rem", lineHeight: 1.7, color: "var(--text-main)", margin: 0 }}>{executive_summary}</p>
                 <div style={{ marginTop: 30, display: "flex", gap: 16 }}>
                   <div
                     style={{
                       flex: 1,
                       padding: "20px",
-                      background: "#f0fdf4",
+                      background: "var(--success-bg)",
                       borderRadius: 12,
                       border: "1px solid #dcfce7",
                     }}
@@ -428,14 +428,14 @@ export default function ReportV2() {
                       style={{
                         fontSize: "0.7rem",
                         fontWeight: 800,
-                        color: "#166534",
+                        color: "var(--success)",
                         textTransform: "uppercase",
                         marginBottom: 8,
                       }}
                     >
                       Compliance Status
                     </div>
-                    <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#15803d" }}>
+                    <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--success)" }}>
                       {compliance_overview.status || "N/A"}
                     </div>
                   </div>
@@ -443,7 +443,7 @@ export default function ReportV2() {
                     style={{
                       flex: 1,
                       padding: "20px",
-                      background: "#fef2f2",
+                      background: "var(--danger-bg)",
                       borderRadius: 12,
                       border: "1px solid #fee2e2",
                     }}
@@ -452,14 +452,14 @@ export default function ReportV2() {
                       style={{
                         fontSize: "0.7rem",
                         fontWeight: 800,
-                        color: "#991b1b",
+                        color: "var(--danger)",
                         textTransform: "uppercase",
                         marginBottom: 8,
                       }}
                     >
                       Critical Gaps
                     </div>
-                    <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "#dc2626" }}>
+                    <div style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--danger)" }}>
                       {(gap_analysis.summary?.missing_count || 0)} Findings
                     </div>
                   </div>
@@ -473,7 +473,7 @@ export default function ReportV2() {
                   style={{
                     fontSize: "0.7rem",
                     fontWeight: 800,
-                    color: "#64748b",
+                    color: "var(--text-muted)",
                     textTransform: "uppercase",
                     marginBottom: 12,
                   }}
@@ -481,17 +481,17 @@ export default function ReportV2() {
                   Assessment Metadata
                 </div>
                 <div style={{ borderBottom: "1px solid #e2e8f0", paddingBottom: 12, marginBottom: 12 }}>
-                  <div style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Generated On</div>
+                  <div style={{ fontSize: "0.8rem", color: "var(--text-light)" }}>Generated On</div>
                   <div style={{ fontWeight: 700 }}>
                     {report_metadata.generated_at ? new Date(report_metadata.generated_at).toLocaleString() : "N/A"}
                   </div>
                 </div>
                 <div style={{ borderBottom: "1px solid #e2e8f0", paddingBottom: 12, marginBottom: 12 }}>
-                  <div style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Audit Scope</div>
+                  <div style={{ fontSize: "0.8rem", color: "var(--text-light)" }}>Audit Scope</div>
                   <div style={{ fontWeight: 700 }}>{report_metadata.scope?.industry || "Full Organization"}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Assessor</div>
+                  <div style={{ fontSize: "0.8rem", color: "var(--text-light)" }}>Assessor</div>
                   <div style={{ fontWeight: 700 }}>GRC Copilot AI Engine</div>
                 </div>
               </div>
@@ -509,7 +509,7 @@ export default function ReportV2() {
                   style={{
                     fontSize: "0.9rem",
                     fontWeight: 800,
-                    color: "#1e293b",
+                    color: "var(--text-main)",
                     marginBottom: 24,
                     textAlign: "center",
                   }}
@@ -517,7 +517,7 @@ export default function ReportV2() {
                   Domain Maturity Distribution
                 </h3>
                 <RiskRadar data={compliance_overview.domain_breakdown} />
-                <p style={{ fontSize: "0.8rem", color: "#64748b", textAlign: "center", marginTop: 12, padding: "0 40px" }}>
+                <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", textAlign: "center", marginTop: 12, padding: "0 40px" }}>
                   The radar chart illustrates compliance levels across core domains. Outward vectors indicate higher
                   maturity.
                 </p>
@@ -527,7 +527,7 @@ export default function ReportV2() {
                   style={{
                     fontSize: "0.9rem",
                     fontWeight: 800,
-                    color: "#1e293b",
+                    color: "var(--text-main)",
                     marginBottom: 24,
                     textAlign: "center",
                   }}
@@ -535,7 +535,7 @@ export default function ReportV2() {
                   Inherent Threat Heatmap
                 </h3>
                 <RiskHeatMap risks={risk_register} />
-                <p style={{ fontSize: "0.8rem", color: "#64748b", textAlign: "center", marginTop: 12, padding: "0 40px" }}>
+                <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", textAlign: "center", marginTop: 12, padding: "0 40px" }}>
                   Risk concentration by likelihood and impact. Red zones represent critical vulnerabilities requiring
                   immediate attention.
                 </p>
@@ -549,11 +549,11 @@ export default function ReportV2() {
             <div style={{ overflow: "hidden", borderRadius: 16, border: "1px solid #e2e8f0" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
                 <thead>
-                  <tr style={{ background: "#f8fafc", textAlign: "left", borderBottom: "2px solid #e2e8f0" }}>
+                  <tr style={{ background: "var(--surface-hover)", textAlign: "left", borderBottom: "2px solid #e2e8f0" }}>
                     <th
                       style={{
                         padding: "16px 24px",
-                        color: "#64748b",
+                        color: "var(--text-muted)",
                         fontWeight: 800,
                         textTransform: "uppercase",
                         fontSize: "0.7rem",
@@ -564,7 +564,7 @@ export default function ReportV2() {
                     <th
                       style={{
                         padding: "16px 24px",
-                        color: "#64748b",
+                        color: "var(--text-muted)",
                         fontWeight: 800,
                         textTransform: "uppercase",
                         fontSize: "0.7rem",
@@ -575,7 +575,7 @@ export default function ReportV2() {
                     <th
                       style={{
                         padding: "16px 24px",
-                        color: "#64748b",
+                        color: "var(--text-muted)",
                         fontWeight: 800,
                         textTransform: "uppercase",
                         fontSize: "0.7rem",
@@ -587,7 +587,7 @@ export default function ReportV2() {
                     <th
                       style={{
                         padding: "16px 24px",
-                        color: "#64748b",
+                        color: "var(--text-muted)",
                         fontWeight: 800,
                         textTransform: "uppercase",
                         fontSize: "0.7rem",
@@ -604,10 +604,10 @@ export default function ReportV2() {
                     risk_register.map((risk, i) => (
                       <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
                         <td style={{ padding: "16px 24px" }}>
-                          <div style={{ fontWeight: 700, color: "#1e293b" }}>{risk.title}</div>
-                          <div style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: 4 }}>ID: R-{1000 + i}</div>
+                          <div style={{ fontWeight: 700, color: "var(--text-main)" }}>{risk.title}</div>
+                          <div style={{ fontSize: "0.75rem", color: "var(--text-light)", marginTop: 4 }}>ID: R-{1000 + i}</div>
                         </td>
-                        <td style={{ padding: "16px 24px", color: "#475569" }}>{risk.category}</td>
+                        <td style={{ padding: "16px 24px", color: "var(--text-main)" }}>{risk.category}</td>
                         <td style={{ padding: "16px 24px" }}>
                           <span
                             style={{
@@ -616,21 +616,21 @@ export default function ReportV2() {
                               fontSize: "0.65rem",
                               fontWeight: 900,
                               textTransform: "uppercase",
-                              background: risk.severity === "critical" ? "#fef2f2" : risk.severity === "high" ? "#fff7ed" : "#f0fdf4",
-                              color: risk.severity === "critical" ? "#ef4444" : risk.severity === "high" ? "#f59e0b" : "#22c55e",
+                              background: risk.severity === "critical" ? "var(--danger-bg)" : risk.severity === "high" ? "var(--warning-bg)" : "var(--success-bg)",
+                              color: risk.severity === "critical" ? "var(--danger)" : risk.severity === "high" ? "var(--warning)" : "var(--success)",
                             }}
                           >
                             {risk.severity}
                           </span>
                         </td>
-                        <td style={{ padding: "16px 24px", textAlign: "center", fontWeight: 800, color: "#1e293b" }}>
+                        <td style={{ padding: "16px 24px", textAlign: "center", fontWeight: 800, color: "var(--text-main)" }}>
                           {risk.likelihood}×{risk.impact}
                         </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="4" style={{ padding: 40, textAlign: "center", color: "#94a3b8" }}>
+                      <td colSpan="4" style={{ padding: 40, textAlign: "center", color: "var(--text-light)" }}>
                         No significant risks identified in this cycle.
                       </td>
                     </tr>
@@ -646,7 +646,7 @@ export default function ReportV2() {
           <section style={{ marginBottom: 60 }}>
             <div className="section-title">04. Detailed Control Gap Analysis</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20, marginBottom: 32 }}>
-              <div style={{ padding: 24, background: "#f0fdf4", borderRadius: 16, border: "1px solid #dcfce7" }}>
+              <div style={{ padding: 24, background: "var(--success-bg)", borderRadius: 16, border: "1px solid #dcfce7" }}>
                 <div style={{ fontSize: "2.5rem", fontWeight: 900, color: "#16a34a", lineHeight: 1 }}>
                   {gap_analysis.summary?.compliant_count || 0}
                 </div>
@@ -654,7 +654,7 @@ export default function ReportV2() {
                   style={{
                     fontSize: "0.75rem",
                     textTransform: "uppercase",
-                    color: "#166534",
+                    color: "var(--success)",
                     fontWeight: 800,
                     marginTop: 8,
                   }}
@@ -662,15 +662,15 @@ export default function ReportV2() {
                   Controls Compliant
                 </div>
               </div>
-              <div style={{ padding: 24, background: "#fffbeb", borderRadius: 16, border: "1px solid #fef3c7" }}>
-                <div style={{ fontSize: "2.5rem", fontWeight: 900, color: "#d97706", lineHeight: 1 }}>
+              <div style={{ padding: 24, background: "var(--warning-bg)", borderRadius: 16, border: "1px solid #fef3c7" }}>
+                <div style={{ fontSize: "2.5rem", fontWeight: 900, color: "var(--warning)", lineHeight: 1 }}>
                   {gap_analysis.summary?.partial_count || 0}
                 </div>
                 <div
                   style={{
                     fontSize: "0.75rem",
                     textTransform: "uppercase",
-                    color: "#92400e",
+                    color: "var(--warning)",
                     fontWeight: 800,
                     marginTop: 8,
                   }}
@@ -678,15 +678,15 @@ export default function ReportV2() {
                   Partial Implementation
                 </div>
               </div>
-              <div style={{ padding: 24, background: "#fef2f2", borderRadius: 16, border: "1px solid #fee2e2" }}>
-                <div style={{ fontSize: "2.5rem", fontWeight: 900, color: "#dc2626", lineHeight: 1 }}>
+              <div style={{ padding: 24, background: "var(--danger-bg)", borderRadius: 16, border: "1px solid #fee2e2" }}>
+                <div style={{ fontSize: "2.5rem", fontWeight: 900, color: "var(--danger)", lineHeight: 1 }}>
                   {gap_analysis.summary?.missing_count || 0}
                 </div>
                 <div
                   style={{
                     fontSize: "0.75rem",
                     textTransform: "uppercase",
-                    color: "#991b1b",
+                    color: "var(--danger)",
                     fontWeight: 800,
                     marginTop: 8,
                   }}
@@ -696,27 +696,27 @@ export default function ReportV2() {
               </div>
             </div>
 
-            <h3 style={{ fontSize: "0.9rem", fontWeight: 800, color: "#1e293b", marginBottom: 16 }}>
+            <h3 style={{ fontSize: "0.9rem", fontWeight: 800, color: "var(--text-main)", marginBottom: 16 }}>
               Primary Remediation Targets (Top 5)
             </h3>
             <div style={{ overflow: "hidden", borderRadius: 16, border: "1px solid #e2e8f0" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                 <thead>
-                  <tr style={{ background: "#f8fafc", textAlign: "left" }}>
-                    <th style={{ padding: "12px 20px", borderBottom: "1px solid #e2e8f0", color: "#64748b", fontWeight: 800 }}>
+                  <tr style={{ background: "var(--surface-hover)", textAlign: "left" }}>
+                    <th style={{ padding: "12px 20px", borderBottom: "1px solid #e2e8f0", color: "var(--text-muted)", fontWeight: 800 }}>
                       Ref
                     </th>
-                    <th style={{ padding: "12px 20px", borderBottom: "1px solid #e2e8f0", color: "#64748b", fontWeight: 800 }}>
+                    <th style={{ padding: "12px 20px", borderBottom: "1px solid #e2e8f0", color: "var(--text-muted)", fontWeight: 800 }}>
                       Control Name
                     </th>
-                    <th style={{ padding: "12px 20px", borderBottom: "1px solid #e2e8f0", color: "#64748b", fontWeight: 800 }}>
+                    <th style={{ padding: "12px 20px", borderBottom: "1px solid #e2e8f0", color: "var(--text-muted)", fontWeight: 800 }}>
                       Domain
                     </th>
                     <th
                       style={{
                         padding: "12px 20px",
                         borderBottom: "1px solid #e2e8f0",
-                        color: "#64748b",
+                        color: "var(--text-muted)",
                         fontWeight: 800,
                         width: 140,
                       }}
@@ -728,16 +728,16 @@ export default function ReportV2() {
                 <tbody>
                   {[...(gap_analysis.missing || []), ...(gap_analysis.partial || [])].slice(0, 5).map((c, i) => (
                     <tr key={i} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                      <td style={{ padding: "12px 20px", fontWeight: 800, color: "#334155" }}>{c.ref}</td>
-                      <td style={{ padding: "12px 20px", color: "#1e293b", fontWeight: 600 }}>{c.name}</td>
-                      <td style={{ padding: "12px 20px", color: "#64748b" }}>{c.domain}</td>
+                      <td style={{ padding: "12px 20px", fontWeight: 800, color: "var(--text-main)" }}>{c.ref}</td>
+                      <td style={{ padding: "12px 20px", color: "var(--text-main)", fontWeight: 600 }}>{c.name}</td>
+                      <td style={{ padding: "12px 20px", color: "var(--text-muted)" }}>{c.domain}</td>
                       <td style={{ padding: "12px 20px" }}>
                         <span
                           style={{
                             fontWeight: 800,
                             fontSize: "0.7rem",
                             textTransform: "uppercase",
-                            color: c.score === 0 ? "#ef4444" : "#f59e0b",
+                            color: c.score === 0 ? "var(--danger)" : "var(--warning)",
                           }}
                         >
                           {c.score === 0 ? "NOT IMPLEMENTED" : `PARTIAL (${Math.round(c.score)}%)`}
@@ -747,7 +747,7 @@ export default function ReportV2() {
                   ))}
                   {(gap_analysis.missing || []).length === 0 && (gap_analysis.partial || []).length === 0 && (
                     <tr>
-                      <td colSpan="4" style={{ padding: 20, textAlign: "center", color: "#94a3b8" }}>
+                      <td colSpan="4" style={{ padding: 20, textAlign: "center", color: "var(--text-light)" }}>
                         No gaps found. All controls are compliant.
                       </td>
                     </tr>
@@ -764,7 +764,7 @@ export default function ReportV2() {
             <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
               <div
                 style={{
-                  background: "linear-gradient(135deg, #0f172a 0%, #1e293b 100%)",
+                  background: "linear-gradient(135deg, var(--bg-color) 0%, var(--surface) 100%)",
                   color: "white",
                   padding: "60px 40px",
                   borderRadius: 24,
@@ -775,73 +775,73 @@ export default function ReportV2() {
                 }}
               >
                 <div>
-                  <div style={{ fontSize: "0.85rem", textTransform: "uppercase", color: "#06b6d4", fontWeight: 900, marginBottom: 12 }}>
+                  <div style={{ fontSize: "0.85rem", textTransform: "uppercase", color: "var(--accent)", fontWeight: 900, marginBottom: 12 }}>
                     Recommended Coverage ({selectedCurrency})
                   </div>
-                  <div style={{ fontSize: "4rem", fontWeight: 900, color: "#fff", lineHeight: 1 }}>
+                  <div style={{ fontSize: "4rem", fontWeight: 900, color: "var(--text-on-dark)", lineHeight: 1 }}>
                     {formatCurrency(data.insurance_readiness?.cyber_insurance_recommendation?.amount_usd || 1000000, selectedCurrency)}
                   </div>
-                  <div style={{ fontSize: "1.1rem", color: "#94a3b8", fontWeight: 600, marginTop: 12 }}>
+                  <div style={{ fontSize: "1.1rem", color: "var(--text-light)", fontWeight: 600, marginTop: 12 }}>
                     Base: {formatCurrency(data.insurance_readiness?.cyber_insurance_recommendation?.amount_usd || 1000000, "USD")}
                   </div>
                 </div>
 
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 24, justifyContent: "flex-end" }}>
-                  <div style={{ background: "rgba(255,255,255,0.05)", padding: "20px 30px", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", textAlign: "center" }}>
-                    <div style={{ fontSize: "0.75rem", color: "#94a3b8", textTransform: "uppercase", marginBottom: 8, fontWeight: 800 }}>Risk Profile</div>
+                  <div style={{ background: "var(--hover-subtle)", padding: "20px 30px", borderRadius: 16, border: "1px solid var(--border-light)", textAlign: "center" }}>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-light)", textTransform: "uppercase", marginBottom: 8, fontWeight: 800 }}>Risk Profile</div>
                     <div style={{ 
                       fontSize: "1.5rem", fontWeight: 900, 
-                      color: data.insurance_readiness?.cyber_insurance_recommendation?.risk_profile === "High" ? "#ef4444" : "#f59e0b"
+                      color: data.insurance_readiness?.cyber_insurance_recommendation?.risk_profile === "High" ? "var(--danger)" : "var(--warning)"
                     }}>
                       {data.insurance_readiness?.cyber_insurance_recommendation?.risk_profile || "Moderate"}
                     </div>
                   </div>
-                  <div style={{ background: "rgba(255,255,255,0.05)", padding: "20px 30px", borderRadius: 16, border: "1px solid rgba(255,255,255,0.1)", textAlign: "center" }}>
-                    <div style={{ fontSize: "0.75rem", color: "#94a3b8", textTransform: "uppercase", marginBottom: 8, fontWeight: 800 }}>Recommendation</div>
-                    <div style={{ fontSize: "1.5rem", fontWeight: 900, color: "#22c55e" }}>
+                  <div style={{ background: "var(--hover-subtle)", padding: "20px 30px", borderRadius: 16, border: "1px solid var(--border-light)", textAlign: "center" }}>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-light)", textTransform: "uppercase", marginBottom: 8, fontWeight: 800 }}>Recommendation</div>
+                    <div style={{ fontSize: "1.5rem", fontWeight: 900, color: "var(--success)" }}>
                       {data.insurance_readiness?.cyber_insurance_recommendation?.is_recommended ? "REQUIRED" : "OPTIONAL"}
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div style={{ background: "#f8fafc", padding: "40px", borderRadius: 24, border: "1px solid #e2e8f0" }}>
-                <h4 style={{ margin: "0 0 16px 0", fontSize: "1.1rem", fontWeight: 800, color: "#1e293b" }}>Strategic Justification</h4>
-                <p style={{ fontSize: "1rem", color: "#475569", lineHeight: 1.8, margin: 0 }}>
+              <div style={{ background: "var(--surface-hover)", padding: "40px", borderRadius: 24, border: "1px solid #e2e8f0" }}>
+                <h4 style={{ margin: "0 0 16px 0", fontSize: "1.1rem", fontWeight: 800, color: "var(--text-main)" }}>Strategic Justification</h4>
+                <p style={{ fontSize: "1rem", color: "var(--text-main)", lineHeight: 1.8, margin: 0 }}>
                   {data.insurance_readiness?.cyber_insurance_recommendation?.reasoning}
                 </p>
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
                 <div className="data-card">
-                  <h4 style={{ margin: "0 0 20px 0", fontSize: "0.9rem", fontWeight: 800, color: "#64748b", textTransform: "uppercase" }}>
+                  <h4 style={{ margin: "0 0 20px 0", fontSize: "0.9rem", fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase" }}>
                     Recommended Coverage Conditions
                   </h4>
                   <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                     {(data.insurance_readiness?.cyber_insurance_recommendation?.conditions || []).map((condition, i) => (
                       <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                        <div style={{ color: "#22c55e", fontSize: "1.2rem", lineHeight: 1 }}>✓</div>
-                        <div style={{ fontSize: "0.85rem", color: "#475569", lineHeight: 1.5 }}>{condition}</div>
+                        <div style={{ color: "var(--success)", fontSize: "1.2rem", lineHeight: 1 }}>✓</div>
+                        <div style={{ fontSize: "0.85rem", color: "var(--text-main)", lineHeight: 1.5 }}>{condition}</div>
                       </div>
                     ))}
                   </div>
                 </div>
 
                 <div className="data-card">
-                  <h4 style={{ margin: "0 0 20px 0", fontSize: "0.9rem", fontWeight: 800, color: "#64748b", textTransform: "uppercase" }}>
+                  <h4 style={{ margin: "0 0 20px 0", fontSize: "0.9rem", fontWeight: 800, color: "var(--text-muted)", textTransform: "uppercase" }}>
                     Technical Underwriting Readiness
                   </h4>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
                     {(data.insurance_readiness?.requirements || []).slice(0, 6).map((req, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "#f8fafc", borderRadius: 8 }}>
-                        <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#1e293b" }}>{req.requirement}</span>
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "var(--surface-hover)", borderRadius: 8 }}>
+                        <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--text-main)" }}>{req.requirement}</span>
                         <span style={{ 
                           fontSize: "0.65rem", 
                           fontWeight: 900, 
                           padding: "4px 8px", 
                           borderRadius: 4,
-                          background: req.status === "ready" ? "#f0fdf4" : req.status === "gap" ? "#fff7ed" : "#fef2f2",
-                          color: req.status === "ready" ? "#22c55e" : req.status === "gap" ? "#f59e0b" : "#ef4444"
+                          background: req.status === "ready" ? "var(--success-bg)" : req.status === "gap" ? "var(--warning-bg)" : "var(--danger-bg)",
+                          color: req.status === "ready" ? "var(--success)" : req.status === "gap" ? "var(--warning)" : "var(--danger)"
                         }}>
                           {req.status?.toUpperCase()}
                         </span>
@@ -860,7 +860,7 @@ export default function ReportV2() {
           {/* SECTION 6: ROADMAP */}
           <section style={{ marginBottom: 60 }}>
             <div className="section-title">06. Prioritized Remediation Roadmap</div>
-            <p style={{ color: "#64748b", fontSize: "0.9rem", marginBottom: 24 }}>
+            <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", marginBottom: 24 }}>
               Strategic action plan for mitigating identified risks. Actions are prioritized by impact on the overall
               security posture and compliance framework alignment.
             </p>
@@ -873,16 +873,16 @@ export default function ReportV2() {
                       padding: "24px 32px",
                       border: "1px solid #e2e8f0",
                       borderRadius: "16px",
-                      background: "#fff",
+                      background: "var(--text-on-dark)",
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "flex-start",
                       borderLeft: `6px solid ${
                         rec.remediation_priority === "Critical"
-                          ? "#ef4444"
+                          ? "var(--danger)"
                           : rec.remediation_priority === "High"
-                          ? "#f59e0b"
-                          : "#3b82f6"
+                          ? "var(--warning)"
+                          : "var(--info)"
                       }`,
                     }}
                   >
@@ -897,26 +897,26 @@ export default function ReportV2() {
                             textTransform: "uppercase",
                             background:
                               rec.remediation_priority === "Critical"
-                                ? "#fef2f2"
+                                ? "var(--danger-bg)"
                                 : rec.remediation_priority === "High"
-                                ? "#fff7ed"
-                                : "#f0f9ff",
+                                ? "var(--warning-bg)"
+                                : "var(--primary-bg-subtle)",
                             color:
                               rec.remediation_priority === "Critical"
-                                ? "#ef4444"
+                                ? "var(--danger)"
                                 : rec.remediation_priority === "High"
-                                ? "#f59e0b"
-                                : "#3b82f6",
+                                ? "var(--warning)"
+                                : "var(--info)",
                           }}
                         >
                           {rec.remediation_priority} Priority
                         </span>
-                        <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 800, textTransform: "uppercase" }}>
+                        <span style={{ fontSize: "0.75rem", color: "var(--text-light)", fontWeight: 800, textTransform: "uppercase" }}>
                           {rec.impact_domain}
                         </span>
                       </div>
-                      <h3 style={{ margin: "0 0 10px", fontSize: "1.1rem", fontWeight: 800, color: "#1e293b" }}>{rec.issue}</h3>
-                      <div style={{ background: "#f8fafc", padding: 16, borderRadius: 10, border: "1px solid #f1f5f9" }}>
+                      <h3 style={{ margin: "0 0 10px", fontSize: "1.1rem", fontWeight: 800, color: "var(--text-main)" }}>{rec.issue}</h3>
+                      <div style={{ background: "var(--surface-hover)", padding: 16, borderRadius: 10, border: "1px solid #f1f5f9" }}>
                         <div
                           style={{
                             fontSize: "0.65rem",
@@ -928,7 +928,7 @@ export default function ReportV2() {
                         >
                           Recommended Action
                         </div>
-                        <p style={{ fontSize: "0.95rem", color: "#334155", margin: 0, lineHeight: 1.5, fontWeight: 500 }}>
+                        <p style={{ fontSize: "0.95rem", color: "var(--text-main)", margin: 0, lineHeight: 1.5, fontWeight: 500 }}>
                           {rec.suggested_fix}
                         </p>
                       </div>
@@ -936,7 +936,7 @@ export default function ReportV2() {
                   </div>
                 ))
               ) : (
-                <div style={{ padding: 40, textAlign: "center", color: "#94a3b8", background: "#f8fafc", borderRadius: 16 }}>
+                <div style={{ padding: 40, textAlign: "center", color: "var(--text-light)", background: "var(--surface-hover)", borderRadius: 16 }}>
                   No recommendations needed. All controls are meeting compliance targets.
                 </div>
               )}
@@ -945,7 +945,7 @@ export default function ReportV2() {
 
           {/* SECTION 7: CONCLUSION */}
           <section
-            style={{ background: "#0f172a", padding: 60, borderRadius: 24, color: "#fff", position: "relative", overflow: "hidden" }}
+            style={{ background: "var(--loading-bg)", padding: 60, borderRadius: 24, color: "var(--text-on-dark)", position: "relative", overflow: "hidden" }}
           >
             <div
               style={{
@@ -958,8 +958,8 @@ export default function ReportV2() {
                 borderRadius: "50%",
               }}
             />
-            <h2 style={{ fontSize: "1.5rem", fontWeight: 900, color: "#fff", marginBottom: 20 }}>07. Final Verdict & Conclusion</h2>
-            <p style={{ fontSize: "1.2rem", lineHeight: 1.6, color: "#cbd5e1", fontStyle: "italic", marginBottom: 32 }}>
+            <h2 style={{ fontSize: "1.5rem", fontWeight: 900, color: "var(--text-on-dark)", marginBottom: 20 }}>07. Final Verdict & Conclusion</h2>
+            <p style={{ fontSize: "1.2rem", lineHeight: 1.6, color: "var(--border-color)", fontStyle: "italic", marginBottom: 32 }}>
               "The current security posture of {report_metadata.organization || "the organization"} is officially rated as
               <strong style={{ color: "var(--primary)" }}>
                 {" "}
@@ -975,7 +975,7 @@ export default function ReportV2() {
             </p>
             <div
               style={{
-                borderTop: "1px solid rgba(255,255,255,0.1)",
+                borderTop: "1px solid var(--border-light)",
                 paddingTop: 30,
                 display: "flex",
                 justifyContent: "space-between",
@@ -987,7 +987,7 @@ export default function ReportV2() {
                   style={{
                     fontSize: "0.7rem",
                     textTransform: "uppercase",
-                    color: "#64748b",
+                    color: "var(--text-muted)",
                     fontWeight: 800,
                     marginBottom: 8,
                   }}
@@ -995,18 +995,18 @@ export default function ReportV2() {
                   Certified Audit Output
                 </div>
                 <div style={{ fontWeight: 700, fontSize: "0.9rem" }}>GRC Copilot Engine v2.4.0</div>
-                <div style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
+                <div style={{ fontSize: "0.8rem", color: "var(--text-light)" }}>
                   ID: {(report_metadata.assessment_id || "").substring(0, 8).toUpperCase()}
                 </div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ height: 40, width: 120, borderBottom: "2px solid rgba(255,255,255,0.2)", marginBottom: 8 }} />
-                <div style={{ fontSize: "0.7rem", color: "#94a3b8", fontWeight: 800 }}>Digital Signature Verified</div>
+                <div style={{ fontSize: "0.7rem", color: "var(--text-light)", fontWeight: 800 }}>Digital Signature Verified</div>
               </div>
             </div>
           </section>
 
-          <div style={{ marginTop: 60, textAlign: "center", fontSize: "0.8rem", color: "#94a3b8" }}>
+          <div style={{ marginTop: 60, textAlign: "center", fontSize: "0.8rem", color: "var(--text-light)" }}>
             End of Compliance Assessment Report — Generated by GRC Copilot for {report_metadata.organization || "the organization"}
           </div>
         </div>

@@ -21,15 +21,15 @@ const ACTION_LABELS = {
 };
 
 const ACTION_COLORS = {
-  "user.login": "#3b82f6",
-  "user.register": "#22c55e",
-  "user.password_change": "#f59e0b",
-  "assessment.create": "#8b5cf6",
+  "user.login": "var(--info)",
+  "user.register": "var(--success)",
+  "user.password_change": "var(--warning)",
+  "assessment.create": "var(--primary)",
   "assessment.update": "#6366f1",
-  "assessment.complete": "#06b6d4",
-  "response.batch_submit": "#0ea5e9",
-  "analysis.complete": "#22c55e",
-  "analysis.failed": "#ef4444",
+  "assessment.complete": "var(--accent)",
+  "response.batch_submit": "var(--primary)",
+  "analysis.complete": "var(--success)",
+  "analysis.failed": "var(--danger)",
   "evidence.upload": "#14b8a6",
   "evidence.delete": "#f43f5e",
   "compliance_agent.upload": "#a855f7",
@@ -38,7 +38,7 @@ const ACTION_COLORS = {
 };
 
 function ActionBadge({ action }) {
-  const color = ACTION_COLORS[action] || "#64748b";
+  const color = ACTION_COLORS[action] || "var(--text-muted)";
   const label = ACTION_LABELS[action] || action;
   return (
     <span
@@ -66,8 +66,8 @@ function ResourceBadge({ type, id }) {
         fontWeight: 600,
         padding: "2px 6px",
         borderRadius: 4,
-        background: "#f1f5f9",
-        color: "#64748b",
+        background: "var(--surface-hover)",
+        color: "var(--text-muted)",
       }}
     >
       {type}
@@ -80,8 +80,8 @@ function DetailRow({ label, value }) {
   if (!value) return null;
   const display = typeof value === "object" ? JSON.stringify(value) : String(value);
   return (
-    <div style={{ fontSize: "0.75rem", color: "#64748b", lineHeight: 1.6 }}>
-      <span style={{ fontWeight: 700, color: "#1e293b" }}>{label}:</span> {display.length > 80 ? display.substring(0, 80) + "..." : display}
+    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", lineHeight: 1.6 }}>
+      <span style={{ fontWeight: 700, color: "var(--text-main)" }}>{label}:</span> {display.length > 80 ? display.substring(0, 80) + "..." : display}
     </div>
   );
 }
@@ -135,7 +135,7 @@ export default function AuditLogs() {
     <div
       style={{
         padding: "40px 32px",
-        background: "#f8fafc",
+        background: "var(--surface-hover)",
         minHeight: "100vh",
       }}
     >
@@ -150,10 +150,10 @@ export default function AuditLogs() {
           }}
         >
           <div>
-            <h1 style={{ fontSize: "1.75rem", fontWeight: 800, color: "#1e293b", margin: "0 0 4px 0" }}>
+            <h1 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-main)", margin: "0 0 4px 0" }}>
               Audit Trail
             </h1>
-            <p style={{ fontSize: "0.9rem", color: "#64748b", margin: 0 }}>
+            <p style={{ fontSize: "0.9rem", color: "var(--text-muted)", margin: 0 }}>
               {total} total log entries{!isAdmin && " — showing your activity"}
             </p>
           </div>
@@ -186,9 +186,9 @@ export default function AuditLogs() {
               padding: "8px 12px",
               borderRadius: 8,
               border: "1px solid #e2e8f0",
-              background: "#fff",
+              background: "var(--surface)",
               fontSize: "0.85rem",
-              color: "#1e293b",
+              color: "var(--text-main)",
               minWidth: 180,
             }}
           >
@@ -211,7 +211,7 @@ export default function AuditLogs() {
               borderRadius: 8,
               border: "1px solid #e2e8f0",
               fontSize: "0.85rem",
-              color: "#1e293b",
+              color: "var(--text-main)",
               minWidth: 160,
             }}
           />
@@ -227,7 +227,7 @@ export default function AuditLogs() {
               borderRadius: 8,
               border: "1px solid #e2e8f0",
               fontSize: "0.85rem",
-              color: "#1e293b",
+              color: "var(--text-main)",
               minWidth: 160,
             }}
           />
@@ -241,9 +241,9 @@ export default function AuditLogs() {
                 padding: "8px 14px",
                 borderRadius: 8,
                 border: "1px solid #e2e8f0",
-                background: "#fff",
+                background: "var(--surface)",
                 fontSize: "0.8rem",
-                color: "#ef4444",
+                color: "var(--danger)",
                 fontWeight: 600,
                 cursor: "pointer",
               }}
@@ -257,17 +257,17 @@ export default function AuditLogs() {
         {loading ? (
           <div style={{ textAlign: "center", padding: 60 }}>
             <div className="loader" style={{ margin: "0 auto 20px" }}></div>
-            <p style={{ color: "#64748b" }}>Loading audit logs...</p>
+            <p style={{ color: "var(--text-muted)" }}>Loading audit logs...</p>
           </div>
         ) : logs.length === 0 ? (
           <div
             className="card"
             style={{ textAlign: "center", padding: 60, maxWidth: "none" }}
           >
-            <h2 style={{ color: "#94a3b8", fontSize: "1.2rem", marginBottom: 8 }}>
+            <h2 style={{ color: "var(--text-light)", fontSize: "1.2rem", marginBottom: 8 }}>
               No Audit Logs Found
             </h2>
-            <p style={{ color: "#94a3b8", fontSize: "0.9rem" }}>
+            <p style={{ color: "var(--text-light)", fontSize: "0.9rem" }}>
               {isAdmin
                 ? "No activity has been logged yet. Start using the application to see logs here."
                 : "No activity found. Your actions will appear here as you use the platform."}
@@ -293,7 +293,7 @@ export default function AuditLogs() {
                   style={{
                     flex: "0 0 140px",
                     fontSize: "0.75rem",
-                    color: "#94a3b8",
+                    color: "var(--text-light)",
                     fontWeight: 600,
                     paddingTop: 2,
                   }}
@@ -320,14 +320,14 @@ export default function AuditLogs() {
                     <ActionBadge action={log.action} />
                     <ResourceBadge type={log.resource_type} id={log.resource_id} />
                     {log.ip_address && (
-                      <span style={{ fontSize: "0.7rem", color: "#94a3b8" }}>
+                      <span style={{ fontSize: "0.7rem", color: "var(--text-light)" }}>
                         {log.ip_address}
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                  <div style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
                     by{" "}
-                    <strong style={{ color: "#1e293b" }}>
+                    <strong style={{ color: "var(--text-main)" }}>
                       {log.user_email || "Unknown"}
                     </strong>
                   </div>
@@ -366,7 +366,7 @@ export default function AuditLogs() {
             >
               Previous
             </button>
-            <span style={{ fontSize: "0.85rem", color: "#64748b", fontWeight: 600 }}>
+            <span style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: 600 }}>
               Page {currentPage} of {totalPages}
             </span>
             <button

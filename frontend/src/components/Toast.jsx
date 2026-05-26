@@ -39,9 +39,9 @@ export function ToastProvider({ children }) {
             style={{
               padding: "14px 20px",
               borderRadius: 10,
-              background: toast.type === "error" ? "#fef2f2" : toast.type === "success" ? "#f0fdf4" : "#f0f9ff",
+              background: toast.type === "error" ? "var(--danger-bg)" : toast.type === "success" ? "var(--success-bg)" : "var(--primary-bg-subtle)",
               border: `1px solid ${toast.type === "error" ? "#fecaca" : toast.type === "success" ? "#bbf7d0" : "#bae6fd"}`,
-              color: toast.type === "error" ? "#991b1b" : toast.type === "success" ? "#166534" : "#075985",
+              color: toast.type === "error" ? "var(--danger)" : toast.type === "success" ? "var(--success)" : "#075985",
               fontSize: "0.9rem",
               fontWeight: 600,
               boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",

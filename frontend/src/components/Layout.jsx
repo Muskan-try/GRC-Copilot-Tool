@@ -95,7 +95,7 @@ export default function Layout({ children }) {
                   width: 14,
                   height: 14,
                   borderRadius: "50%",
-                  background: "#fff",
+                  background: "var(--surface)",
                   position: "absolute",
                   top: 2,
                   left: theme === "dark" ? 16 : 2,

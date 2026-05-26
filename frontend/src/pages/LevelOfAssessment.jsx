@@ -9,28 +9,28 @@ const QUICK_ASSESSMENT_TYPES = [
     title: "Gap Assessment",
     desc: "Identify deficiencies between current and required control state",
     icon: "📊",
-    color: "#0ea5e9",
+    color: "var(--primary)",
   },
   {
     id: "risk_assessment",
     title: "Risk Assessment",
     desc: "Identify, analyze, and evaluate information security risks",
     icon: "⚠️",
-    color: "#ef4444",
+    color: "var(--danger)",
   },
   {
     id: "internal_audit",
     title: "Internal Audit",
     desc: "Independent evaluation of internal controls and compliance",
     icon: "🔍",
-    color: "#06b6d4",
+    color: "var(--accent)",
   },
   {
     id: "vendor_assessment",
     title: "Vendor Assessment",
     desc: "Evaluate third-party security and compliance posture",
     icon: "🤝",
-    color: "#8b5cf6",
+    color: "var(--primary)",
   },
 ];
 
@@ -40,14 +40,14 @@ const FULL_ASSESSMENT_TYPES = [
     title: "Vendor Assessment",
     desc: "Evaluate third-party security and compliance posture",
     icon: "🤝",
-    color: "#8b5cf6",
+    color: "var(--primary)",
   },
   {
     id: "internal_audit",
     title: "Internal Audit",
     desc: "Independent evaluation of internal controls and compliance",
     icon: "🔍",
-    color: "#06b6d4",
+    color: "var(--accent)",
   },
 ];
 
@@ -59,7 +59,7 @@ const DEPTH_LEVELS = [
     icon: "⚡",
     time: "10-15 min",
     questions: "10-15 questions",
-    color: "#22c55e",
+    color: "var(--success)",
   },
   {
     id: "standard",
@@ -68,7 +68,7 @@ const DEPTH_LEVELS = [
     icon: "📊",
     time: "30-45 min",
     questions: "25-30 questions",
-    color: "#0ea5e9",
+    color: "var(--primary)",
   },
   {
     id: "comprehensive",
@@ -77,7 +77,7 @@ const DEPTH_LEVELS = [
     icon: "🔍",
     time: "60-90 min",
     questions: "40-60 questions",
-    color: "#8b5cf6",
+    color: "var(--primary)",
   },
   {
     id: "full",
@@ -86,7 +86,7 @@ const DEPTH_LEVELS = [
     icon: "🛡️",
     time: "2-5 hours",
     questions: "ALL questions",
-    color: "#d946ef",
+    color: "var(--danger)",
   },
 ];
 
@@ -177,7 +177,7 @@ export default function LevelOfAssessment() {
                   padding: "16px 20px",
                   borderRadius: 12,
                   border: "2px solid " + (selectedType === type.id ? type.color : "var(--border-color)"),
-                  background: selectedType === type.id ? `${type.color}08` : "white",
+                  background: selectedType === type.id ? `${type.color}08` : "var(--surface)",
                   cursor: "pointer",
                   transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                   transform: selectedType === type.id ? "scale(1.02)" : "scale(1)",
@@ -223,7 +223,7 @@ export default function LevelOfAssessment() {
                     padding: "20px 24px",
                     borderRadius: 16,
                     border: "2px solid " + (selectedDepth === level.id ? level.color : "var(--border-color)"),
-                    background: selectedDepth === level.id ? `${level.color}08` : "white",
+                    background: selectedDepth === level.id ? `${level.color}08` : "var(--surface)",
                     cursor: "pointer",
                     transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                     transform: selectedDepth === level.id ? "scale(1.02)" : "scale(1)",

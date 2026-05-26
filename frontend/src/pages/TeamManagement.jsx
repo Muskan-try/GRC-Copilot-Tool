@@ -130,7 +130,7 @@ export default function TeamManagement() {
         {/* Pending Reviews Banner */}
         {pendingReviews.length > 0 && (
           <div style={{ marginBottom: 24, padding: "16px 20px", background: "var(--primary-bg-subtle)", border: "1px solid #bfdbfe", borderRadius: 10 }}>
-            <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "#1e40af", marginBottom: 4 }}>
+            <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--info)", marginBottom: 4 }}>
               📋 {pendingReviews.length} Assessment{pendingReviews.length > 1 ? 's' : ''} Pending Your Review
             </div>
             {pendingReviews.map(pr => (

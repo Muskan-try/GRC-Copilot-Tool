@@ -67,7 +67,7 @@ export default function ScopeDefinition() {
                   padding: "6px 12px", borderRadius: 20, background: "var(--surface-hover)", 
                   border: "1px solid var(--border-color)", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 8 
                 }}>
-                  {d} <button onClick={() => removeDept(d)} style={{ border: "none", background: "none", cursor: "pointer", color: "#999" }}>&times;</button>
+                  {d} <button onClick={() => removeDept(d)} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--text-light)" }}>&times;</button>
                 </span>
               ))}
             </div>
@@ -91,7 +91,7 @@ export default function ScopeDefinition() {
                   padding: "6px 12px", borderRadius: 20, background: "var(--surface-hover)", 
                   border: "1px solid var(--border-color)", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 8 
                 }}>
-                  {a} <button onClick={() => removeAsset(a)} style={{ border: "none", background: "none", cursor: "pointer", color: "#999" }}>&times;</button>
+                  {a} <button onClick={() => removeAsset(a)} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--text-light)" }}>&times;</button>
                 </span>
               ))}
             </div>

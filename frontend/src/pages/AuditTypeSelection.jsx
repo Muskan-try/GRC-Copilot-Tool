@@ -56,7 +56,7 @@ export default function AuditTypeSelection() {
             style={{ 
               padding: 32, textAlign: "left", cursor: "pointer", 
               border: "1px solid var(--border-color)", transition: "all 0.2s",
-              background: "white"
+              background: "var(--surface)"
             }}
             onMouseEnter={e => e.currentTarget.style.borderColor = "var(--primary)"}
             onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border-color)"}
@@ -74,7 +74,7 @@ export default function AuditTypeSelection() {
             style={{ 
               padding: 32, textAlign: "left", cursor: "pointer", 
               border: "1px solid var(--border-color)", transition: "all 0.2s",
-              background: "white"
+              background: "var(--surface)"
             }}
             onMouseEnter={e => e.currentTarget.style.borderColor = "var(--primary)"}
             onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border-color)"}

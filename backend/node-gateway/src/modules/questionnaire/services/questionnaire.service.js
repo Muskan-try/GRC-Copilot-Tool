@@ -72,19 +72,16 @@ class QuestionnaireService {
   async getQuestionsForAssessment(assessmentId, userId) {
     logger.info(`Fetching questions from MongoDB for assessment: ${assessmentId} (user: ${userId})`);
 
-    // 1. Get assessment metadata (depth, type, frameworks) and verify ownership
+    // 1. Get assessment metadata and verify org access
     const assessmentResult = await query(
-      `SELECT analysis_depth, assessment_type, org_id, user_id FROM assessments WHERE id = $1`,
-      [assessmentId]
+      `SELECT a.analysis_depth, a.assessment_type, a.org_id, a.user_id
+       FROM assessments a
+       WHERE a.id = $1 AND a.org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active')`,
+      [assessmentId, userId]
     );
-    if (assessmentResult.rows.length === 0) throw new Error('Assessment not found.');
-    
+    if (assessmentResult.rows.length === 0) throw new Error('Assessment not found or unauthorized.');
+
     const { analysis_depth, assessment_type, org_id, user_id } = assessmentResult.rows[0];
-    
-    if (user_id !== userId) {
-      logger.warn(`Unauthorized access attempt to assessment ${assessmentId} by user ${userId}`);
-      throw new Error('Unauthorized access to this assessment.');
-    }
     const depth = analysis_depth || 'quick';
     const type = assessment_type || 'compliance_assessment';
 

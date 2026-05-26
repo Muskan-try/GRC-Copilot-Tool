@@ -35,12 +35,12 @@ function BarChart({ data }) {
           return (
             <g key={i}>
               <rect x={x} y={y} width={barW} height={barH} fill={color} rx="2" />
-              <text x={x + barW / 2} y={y - 10} textAnchor="middle" fontSize="11" fontWeight="700" fill="#334155">{val}%</text>
-              <text x={x + barW / 2} y={chartH + 55} textAnchor="middle" fontSize="10" fontWeight="600" fill="#64748b">{d.domain}</text>
+              <text x={x + barW / 2} y={y - 10} textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--text-main)">{val}%</text>
+              <text x={x + barW / 2} y={chartH + 55} textAnchor="middle" fontSize="10" fontWeight="600" fill="var(--text-muted)">{d.domain}</text>
             </g>
           );
         })}
-        <line x1="0" y1={chartH + 30} x2={totalW} y2={chartH + 30} stroke="#cbd5e1" strokeWidth="2" />
+        <line x1="0" y1={chartH + 30} x2={totalW} y2={chartH + 30} stroke="var(--text-light)" strokeWidth="2" />
       </svg>
     </div>
   );
@@ -74,7 +74,7 @@ function PieChart({ yes, partial, no }) {
         {slices.map(s => (
           <div key={s.label} style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "10px" }}>
             <div style={{ width: "14px", height: "14px", borderRadius: "3px", background: s.color }} />
-            <span style={{ fontSize: "10pt", fontWeight: "700", color: "#334155" }}>{s.label}: {s.value}</span>
+            <span style={{ fontSize: "10pt", fontWeight: "700", color: "var(--text-main)" }}>{s.label}: {s.value}</span>
           </div>
         ))}
       </div>
@@ -132,7 +132,7 @@ export default function Report() {
   const data = useMemo(() => computeReport(answers, compliance, formData), [answers, compliance, formData]);
 
   return (
-    <div style={{ background: "#f8fafc", color: "#1e293b", fontFamily: "'Inter', sans-serif", padding: "40px 0" }}>
+    <div style={{ background: "var(--surface-hover)", color: "var(--loading-bg)", fontFamily: "'Inter', sans-serif", padding: "40px 0" }}>
       <style>{`
         @page { size: A4; margin: 0; }
         @media print {
@@ -166,16 +166,16 @@ export default function Report() {
       <div className="report-container">
         
         {/* PAGE 1: COVER PAGE */}
-        <div className="page-content" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", background: "#0f172a", color: "white" }}>
+        <div className="page-content" style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", background: "var(--loading-bg)", color: "white" }}>
           <div style={{ marginTop: "150px" }}>
             <div style={{ width: "100px", height: "10px", background: "#3b82f6", marginBottom: "40px" }} />
             <h1 style={{ color: "white", letterSpacing: "-0.03em", lineHeight: "1" }}>COMPLIANCE<br />ASSESSMENT<br />REPORT</h1>
-            <div style={{ fontSize: "20pt", marginTop: "30px", color: "#94a3b8", fontWeight: "500" }}>{data.compliance} Framework</div>
+            <div style={{ fontSize: "20pt", marginTop: "30px", color: "var(--text-light)", fontWeight: "500" }}>{data.compliance} Framework</div>
           </div>
           
           <div style={{ marginBottom: "100px" }}>
             <div style={{ fontSize: "28pt", fontWeight: "800", color: "white", marginBottom: "15px" }}>{data.orgName}</div>
-            <div style={{ fontSize: "12pt", color: "#64748b", display: "flex", gap: "30px" }}>
+            <div style={{ fontSize: "12pt", color: "var(--text-muted)", display: "flex", gap: "30px" }}>
               <span>DATE: {new Date().toLocaleDateString()}</span>
               <span>TIME: {new Date().toLocaleTimeString()}</span>
             </div>
@@ -212,9 +212,9 @@ export default function Report() {
               <div key={i} style={{ display: "flex", gap: "25px", marginBottom: "35px" }}>
                 <div style={{ fontSize: "18pt", fontWeight: "900", color: "#3b82f6", width: "40px" }}>{i < 9 ? `0${i+1}` : i+1}</div>
                 <div>
-                  <div style={{ fontSize: "13pt", fontWeight: "800", color: "#334155", marginBottom: "5px" }}>{domain.domain}</div>
-                  <div style={{ fontSize: "10.5pt", color: "#64748b", lineHeight: "1.5" }}>{domain.description}</div>
-                  <div style={{ marginTop: "8px", fontSize: "9pt", fontWeight: "700", color: "#94a3b8", textTransform: "uppercase" }}>
+                  <div style={{ fontSize: "13pt", fontWeight: "800", color: "var(--text-main)", marginBottom: "5px" }}>{domain.domain}</div>
+                  <div style={{ fontSize: "10.5pt", color: "var(--text-muted)", lineHeight: "1.5" }}>{domain.description}</div>
+                  <div style={{ marginTop: "8px", fontSize: "9pt", fontWeight: "700", color: "var(--text-light)", textTransform: "uppercase" }}>
                     Status: {domain.score === 100 ? "Fully Implemented" : "Under Implementation"}
                   </div>
                 </div>
@@ -230,10 +230,10 @@ export default function Report() {
           <h2>3. Data Analysis & Findings</h2>
           <p style={{ textAlign: "left" }}>This section provides a visual representation of the current compliance state. Data is derived from the implementation status of individual security controls.</p>
           
-          <div style={{ background: "#f8fafc", borderRadius: "20px", padding: "40px", border: "1px solid #e2e8f0", marginTop: "40px" }}>
-            <div style={{ fontSize: "14pt", color: "#64748b", fontWeight: "600" }}>Overall Compliance Posture</div>
-            <div style={{ fontSize: "48pt", fontWeight: "900", color: "#0f172a", margin: "10px 0" }}>{data.score}%</div>
-            <div style={{ height: "8px", width: "200px", background: "#e2e8f0", borderRadius: "10px", margin: "0 auto" }}>
+          <div style={{ background: "var(--surface-hover)", borderRadius: "20px", padding: "40px", border: "1px solid #e2e8f0", marginTop: "40px" }}>
+            <div style={{ fontSize: "14pt", color: "var(--text-muted)", fontWeight: "600" }}>Overall Compliance Posture</div>
+            <div style={{ fontSize: "48pt", fontWeight: "900", color: "var(--loading-bg)", margin: "10px 0" }}>{data.score}%</div>
+            <div style={{ height: "8px", width: "200px", background: "var(--border-color)", borderRadius: "10px", margin: "0 auto" }}>
               <div style={{ height: "100%", width: `${data.score}%`, background: "#3b82f6", borderRadius: "10px" }} />
             </div>
           </div>
@@ -256,7 +256,7 @@ export default function Report() {
           <h2>4. Impact Analysis & Gaps</h2>
           <p>The assessment has identified several critical gaps that directly influence the organization's security readiness. These findings represent the primary focus for the remediation phase.</p>
           
-          <div style={{ background: "#fff1f2", padding: "25px", borderRadius: "12px", borderLeft: "6px solid #be123c", marginBottom: "40px" }}>
+          <div style={{ background: "var(--danger-bg)", padding: "25px", borderRadius: "12px", borderLeft: "6px solid #be123c", marginBottom: "40px" }}>
             <h4 style={{ color: "#9f1239", margin: "0 0 10px 0", fontSize: "13pt" }}>Security Implications</h4>
             <p style={{ color: "#9f1239", margin: 0 }}>Gaps identified in critical domains significantly increase the risk of unauthorized data access and regulatory non-compliance. Immediate remediation is required for all domains scoring below the 50% threshold.</p>
           </div>
@@ -273,7 +273,7 @@ export default function Report() {
             <tbody>
               {data.gaps.map((gap, i) => (
                 <tr key={i}>
-                  <td style={{ fontWeight: "700", color: "#334155" }}>{gap.sectionTitle}</td>
+                  <td style={{ fontWeight: "700", color: "var(--text-main)" }}>{gap.sectionTitle}</td>
                   <td>{gap.question}</td>
                   <td style={{ fontWeight: "800", color: gap.response === "No" ? "#be123c" : "#b45309" }}>{gap.response}</td>
                 </tr>
@@ -291,21 +291,21 @@ export default function Report() {
           <h3>5.1 Financial Cost Estimation</h3>
           <p>The following estimate represents the projected capital and operational expenditure required to remediate all identified vulnerabilities and achieve full framework alignment.</p>
           
-          <div style={{ background: "#0f172a", color: "white", padding: "50px", borderRadius: "20px", textAlign: "center", margin: "40px 0" }}>
+          <div style={{ background: "var(--loading-bg)", color: "white", padding: "50px", borderRadius: "20px", textAlign: "center", margin: "40px 0" }}>
             <div style={{ color: "#3b82f6", fontSize: "11pt", fontWeight: "800", textTransform: "uppercase", marginBottom: "10px" }}>Total Estimated Investment</div>
             <div style={{ fontSize: "42pt", fontWeight: "900" }}>{currency.symbol}{Math.round(data.totalEstCostUsd * currency.rate).toLocaleString()}</div>
-            <div style={{ fontSize: "14pt", color: "#94a3b8", marginTop: "10px" }}>Currency: {currency.label}</div>
+            <div style={{ fontSize: "14pt", color: "var(--text-light)", marginTop: "10px" }}>Currency: {currency.label}</div>
           </div>
           
           <h3>5.2 Cyber Insurance Recommendation</h3>
           <p>To further mitigate residual risks, the following cyber insurance structure is advised based on the current compliance profile:</p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
             <div style={{ border: "1px solid #e2e8f0", padding: "20px", borderRadius: "12px" }}>
-              <div style={{ fontSize: "9pt", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>Required Level</div>
-              <div style={{ fontSize: "18pt", fontWeight: "800", color: "#0f172a" }}>{data.cyberInsurance.level}</div>
+              <div style={{ fontSize: "9pt", fontWeight: "800", color: "var(--text-muted)", textTransform: "uppercase" }}>Required Level</div>
+              <div style={{ fontSize: "18pt", fontWeight: "800", color: "var(--loading-bg)" }}>{data.cyberInsurance.level}</div>
             </div>
             <div style={{ border: "1px solid #e2e8f0", padding: "20px", borderRadius: "12px" }}>
-              <div style={{ fontSize: "9pt", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>Recommended Limit</div>
+              <div style={{ fontSize: "9pt", fontWeight: "800", color: "var(--text-muted)", textTransform: "uppercase" }}>Recommended Limit</div>
               <div style={{ fontSize: "18pt", fontWeight: "800", color: "#3b82f6" }}>{data.cyberInsurance.coverage}</div>
             </div>
           </div>
@@ -339,7 +339,7 @@ export default function Report() {
                   </td>
                   <td style={{ fontWeight: "700" }}>{gap.sectionTitle}</td>
                   <td style={{ fontSize: "9.5pt", lineHeight: "1.5" }}>{gap.rec}</td>
-                  <td style={{ fontWeight: "700", color: "#0f172a" }}>{currency.symbol}{Math.round((gap.response === "No" ? 8000 : 3500) * currency.rate).toLocaleString()}</td>
+                  <td style={{ fontWeight: "700", color: "var(--loading-bg)" }}>{currency.symbol}{Math.round((gap.response === "No" ? 8000 : 3500) * currency.rate).toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>
@@ -356,17 +356,17 @@ export default function Report() {
             <p>This assessment concludes that <strong>{data.orgName}</strong> currently holds a compliance maturity level of <strong>{data.score}%</strong> against the <strong>{data.compliance}</strong> framework. While the organization demonstrates strength in several core domains, significant remediation is required to eliminate vulnerabilities in critical areas.</p>
             
             <h3 style={{ marginTop: "40px", borderLeft: "4px solid #3b82f6", paddingLeft: "20px" }}>Final Verdict</h3>
-            <p style={{ fontStyle: "italic", fontSize: "12pt", color: "#334155" }}>
+            <p style={{ fontStyle: "italic", fontSize: "12pt", color: "var(--text-main)" }}>
               "The current security posture is {data.score > 75 ? "Strong" : data.score > 50 ? "Moderate" : "At-Risk"}. Adherence to the remediation roadmap provided in Section 6 is vital for achieving operational resilience and regulatory alignment."
             </p>
 
-            <div style={{ marginTop: "60px", background: "#f1f5f9", padding: "30px", borderRadius: "16px" }}>
-              <h4 style={{ margin: "0 0 15px 0", fontWeight: "800", textTransform: "uppercase", fontSize: "10pt", color: "#64748b" }}>Assessment Certification</h4>
+            <div style={{ marginTop: "60px", background: "var(--surface-hover)", padding: "30px", borderRadius: "16px" }}>
+              <h4 style={{ margin: "0 0 15px 0", fontWeight: "800", textTransform: "uppercase", fontSize: "10pt", color: "var(--text-muted)" }}>Assessment Certification</h4>
               <p style={{ fontSize: "9.5pt", margin: 0 }}>This report is a verified output of the GRC Copilot Engine based on submitted organizational data. It serves as an official record of the compliance state as of {new Date().toLocaleDateString()}.</p>
             </div>
           </div>
           
-          <div style={{ marginTop: "150px", borderTop: "1px solid #e2e8f0", paddingTop: "20px", textAlign: "center", fontSize: "9pt", color: "#94a3b8" }}>
+          <div style={{ marginTop: "150px", borderTop: "1px solid #e2e8f0", paddingTop: "20px", textAlign: "center", fontSize: "9pt", color: "var(--text-light)" }}>
             End of Compliance Assessment Report — Produced by GRC Copilot
           </div>
         </div>

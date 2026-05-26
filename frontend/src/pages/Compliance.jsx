@@ -163,7 +163,7 @@ export default function Compliance() {
                         display: "flex", 
                         flexDirection: "column",
                         border: isSelected ? '2px solid var(--primary)' : '1px solid var(--border-color)',
-                        background: isSelected ? 'rgba(var(--primary-rgb), 0.05)' : 'white',
+                        background: isSelected ? 'rgba(var(--primary-rgb), 0.05)' : 'var(--surface)',
                         textAlign: 'left'
                       }}
                     >

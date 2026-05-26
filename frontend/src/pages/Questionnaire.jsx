@@ -65,7 +65,7 @@ export default function Questionnaire() {
                 key={section.id} 
                 style={{ 
                   border: "1px solid " + (isOpen ? "var(--primary)" : "var(--border-color)"),
-                  borderRadius: 16, overflow: "hidden", background: isOpen ? "#fff" : "rgba(255, 255, 255, 0.4)",
+                  borderRadius: 16, overflow: "hidden", background: isOpen ? "var(--text-on-dark)" : "rgba(255, 255, 255, 0.4)",
                   transition: "all 0.2s ease"
                 }}
               >

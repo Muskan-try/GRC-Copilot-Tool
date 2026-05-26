@@ -11,3 +11,6 @@
 # ux
 - Show loading/scanning indicators to the user during long-running background operations so they are aware the system is working. Confidence: 0.70
 
+# theme
+- When making CSS variable or theming changes for dark mode compatibility, apply changes that preserve the original light mode appearance unchanged (use CSS variables that resolve to original hardcoded values in light mode). Do not globally replace hardcoded colors with CSS variables if it alters light mode. Confidence: 0.65
+

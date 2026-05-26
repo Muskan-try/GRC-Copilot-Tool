@@ -104,7 +104,7 @@ export default function Assessment() {
         </div>
 
         {error && (
-          <div style={{ padding: "12px 16px", background: "#fef2f2", border: "1px solid #fee2e2", borderRadius: 12, marginBottom: 20, fontSize: "0.88rem", color: "#991b1b" }}>
+          <div style={{ padding: "12px 16px", background: "var(--danger-bg)", border: "1px solid #fee2e2", borderRadius: 12, marginBottom: 20, fontSize: "0.88rem", color: "var(--danger)" }}>
             {error}
           </div>
         )}

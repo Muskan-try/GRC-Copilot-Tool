@@ -16,7 +16,7 @@ const CURRENCIES = [
 function DonutChart({ score, size = 160, label = "Compliance" }) {
   const r = 58, c = 2 * Math.PI * r;
   const offset = c - (score / 100) * c;
-  const color = score >= 75 ? "#22c55e" : score >= 50 ? "#f59e0b" : score >= 25 ? "#f97316" : "#ef4444";
+  const color = score >= 75 ? "var(--success)" : score >= 50 ? "var(--warning)" : score >= 25 ? "#f97316" : "var(--danger)";
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
       <svg width={size} height={size} viewBox="0 0 160 160">
@@ -44,7 +44,7 @@ function BarChart({ data, height = 280 }) {
           const barH = (val / 100) * chartH;
           const x = i * (barW + spacing) + spacing;
           const y = chartH - barH + 20;
-          const color = val >= 75 ? "#22c55e" : val >= 50 ? "#f59e0b" : val >= 25 ? "#f97316" : "#ef4444";
+          const color = val >= 75 ? "var(--success)" : val >= 50 ? "var(--warning)" : val >= 25 ? "#f97316" : "var(--danger)";
           return (
             <g key={i}>
               <rect x={x} y={y} width={barW} height={barH} rx="6" fill={color} opacity="0.8" />
@@ -66,9 +66,9 @@ function PieChart({ yes, partial, no, size = 200 }) {
   if (total === 0) return <div style={{ height: size, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>No data</div>;
   const r = 50, c = 2 * Math.PI * r;
   const slices = [
-    { label: "Yes", value: yes, color: "#22c55e" },
-    { label: "Partial", value: partial, color: "#f59e0b" },
-    { label: "No", value: no, color: "#ef4444" }
+    { label: "Yes", value: yes, color: "var(--success)" },
+    { label: "Partial", value: partial, color: "var(--warning)" },
+    { label: "No", value: no, color: "var(--danger)" }
   ];
   let currentOffset = 0;
   return (

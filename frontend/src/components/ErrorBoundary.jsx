@@ -19,7 +19,7 @@ export default class ErrorBoundary extends Component {
       return (
         <div className="page" style={{ background: "var(--bg-color)", textAlign: "center" }}>
           <div className="card" style={{ maxWidth: 500 }}>
-            <h1 style={{ color: "#ef4444", marginBottom: 16 }}>Something went wrong</h1>
+            <h1 style={{ color: "var(--danger)", marginBottom: 16 }}>Something went wrong</h1>
             <p style={{ color: "var(--text-muted)", marginBottom: 24 }}>
               {this.state.error?.message || "An unexpected error occurred."}
             </p>

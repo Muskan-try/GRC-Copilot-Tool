@@ -7,10 +7,10 @@ const STORAGE_KEY = "enhanced_questionnaire_progress";
 
 const MATURITY_LEVELS = [
   { val: 0, label: "Non-Existent", desc: "No recognizable process exists", color: "var(--danger)" },
-  { val: 1, label: "Initial", desc: "Ad-hoc and disorganized processes", color: "#f87171" },
-  { val: 2, label: "Developing", desc: "Basic processes emerging but informal", color: "#fb923c" },
-  { val: 3, label: "Defined", desc: "Processes documented and standardized", color: "#fcd34d" },
-  { val: 4, label: "Managed", desc: "Measured, controlled, and continuously improved", color: "#a3e635" },
+  { val: 1, label: "Initial", desc: "Ad-hoc and disorganized processes", color: "var(--danger)" },
+  { val: 2, label: "Developing", desc: "Basic processes emerging but informal", color: "var(--warning)" },
+  { val: 3, label: "Defined", desc: "Processes documented and standardized", color: "var(--warning)" },
+  { val: 4, label: "Managed", desc: "Measured, controlled, and continuously improved", color: "var(--success)" },
   { val: 5, label: "Optimized", desc: "Automated best practices with metrics-driven improvement", color: "var(--success)" },
 ];
 
@@ -112,6 +112,10 @@ export default function QuestionnaireEnhanced() {
 
   const currentQuestion = questions[currentIndex];
 
+  const canAdvance = (ans) => {
+    return ans && ans.compliance !== undefined && ans.compliance !== null && ans.maturity !== undefined && ans.maturity !== null;
+  };
+
   const handleComplianceSelect = async (val) => {
     if (!currentQuestion) return;
     const qid = currentQuestion.question_id;
@@ -120,8 +124,9 @@ export default function QuestionnaireEnhanced() {
     const maturity = isNa ? 0 : prev.maturity;
     const newAnswers = { ...answers, [qid]: { ...prev, compliance: val, maturity, is_na: isNa } };
     setAnswers(newAnswers);
-    await submitAnswer(qid, newAnswers[qid], currentQuestion);
+    // If N/A is selected, maturity auto-sets to 0, so both are set — save and advance
     if (isNa) {
+      await submitAnswer(qid, newAnswers[qid], currentQuestion);
       setTimeout(() => {
         if (currentIndex < questions.length - 1) {
           setCurrentIndex(currentIndex + 1);
@@ -130,22 +135,27 @@ export default function QuestionnaireEnhanced() {
         }
       }, 350);
     }
+    // If compliance is selected but maturity not yet picked, wait for maturity
   };
 
   const handleMaturitySelect = async (val) => {
     if (!currentQuestion) return;
     const qid = currentQuestion.question_id;
     const prev = answers[qid] || {};
-    const newAnswers = { ...answers, [qid]: { ...prev, maturity: val } };
+    const updated = { ...prev, maturity: val };
+    const newAnswers = { ...answers, [qid]: updated };
     setAnswers(newAnswers);
-    await submitAnswer(qid, newAnswers[qid], currentQuestion);
-    setTimeout(() => {
-      if (currentIndex < questions.length - 1) {
-        setCurrentIndex(currentIndex + 1);
-      } else {
-        setView("review");
-      }
-    }, 350);
+    // Only save and advance if compliance is also selected
+    if (updated.compliance !== undefined && updated.compliance !== null) {
+      await submitAnswer(qid, updated, currentQuestion);
+      setTimeout(() => {
+        if (currentIndex < questions.length - 1) {
+          setCurrentIndex(currentIndex + 1);
+        } else {
+          setView("review");
+        }
+      }, 350);
+    }
   };
 
   const submitAnswer = async (qid, ans, question) => {
@@ -515,7 +525,7 @@ export default function QuestionnaireEnhanced() {
           {aiInsights[currentQuestion?.question_id] && (
             <div className="ai-insight" style={{ background: "var(--warning-bg)", borderLeft: "4px solid #f59e0b", borderRadius: 8, padding: 14, marginBottom: 20 }}>
               <span className="insight-icon" style={{ fontSize: "1.2rem" }}>🤖</span>
-              <span style={{ color: "#78350f", fontWeight: 600, fontSize: "0.9rem", lineHeight: 1.4 }}>{aiInsights[currentQuestion?.question_id]}</span>
+              <span style={{ color: "var(--warning)", fontWeight: 600, fontSize: "0.9rem", lineHeight: 1.4 }}>{aiInsights[currentQuestion?.question_id]}</span>
             </div>
           )}
 
@@ -545,7 +555,7 @@ export default function QuestionnaireEnhanced() {
                       >
                         {opt.label}
                       </span>
-                      <span className="option-desc" style={{ fontSize: "0.75rem", color: "var(--gray-500)" }}>
+                      <span className="option-desc" style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
                         {opt.desc}
                       </span>
                     </button>
@@ -584,7 +594,6 @@ export default function QuestionnaireEnhanced() {
                 })}
               </div>
 
-              <div className="maturity-desc">{MATURITY_LEVELS[currentAnswer.maturity ?? 0]?.desc}</div>
             </div>
 
             {/* Evidence Upload */}
@@ -626,18 +635,7 @@ export default function QuestionnaireEnhanced() {
               style={{ padding: "10px 20px", fontSize: "0.85rem", fontWeight: 600, borderRadius: 8, opacity: currentIndex === 0 ? 0.4 : 1 }}>
               ← Previous
             </button>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--text-light)", background: "var(--surface-hover)", padding: "4px 12px", borderRadius: 20 }}>
-                {currentIndex + 1} / {questions.length}
-              </span>
-              <span className="weight-badge">Weight: {currentQuestion?.weight}x</span>
-              {currentQuestion?.critical && <span className="critical-indicator">Critical</span>}
-            </div>
-
-            <div style={{ fontSize: "0.8rem", color: "var(--text-light)", fontWeight: 600, background: "var(--surface-hover)", padding: "4px 12px", borderRadius: 20 }}>
-              {questions.length - currentIndex - 1} left
-            </div>
+            <div></div>
           </div>
         </div>
       </div>

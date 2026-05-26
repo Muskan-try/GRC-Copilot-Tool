@@ -68,7 +68,7 @@ function RiskHeatMap({ risks }) {
   const gridSize = 50;
 
   return (
-    <div style={{ padding: 24, background: "var(--text-on-dark)", borderRadius: 16, border: "1px solid #f1f5f9" }}>
+    <div style={{ padding: 24, background: "var(--surface-hover)", borderRadius: 16, border: "1px solid var(--border-color)" }}>
       <div style={{ display: "grid", gridTemplateColumns: "40px repeat(5, 1fr)", gap: 6 }}>
         <div />
         {[1, 2, 3, 4, 5].map((i) => (
@@ -240,14 +240,14 @@ export default function ReportV2() {
       <style>{`
         @media print {
           .no-print { display: none !important; }
-          body { background: white !important; padding: 0 !important; }
+          body { background: var(--surface) !important; padding: 0 !important; }
           .report-container { width: 100% !important; max-width: none !important; box-shadow: none !important; border: none !important; margin: 0 !important; }
           .page-break { page-break-after: always; }
         }
-        .report-container { background: white; width: 100%; max-width: 1050mm; margin: 0 auto; box-shadow: 0 20px 50px rgba(0,0,0,0.1); border-radius: 20px; overflow: hidden; }
+        .report-container { background: var(--surface); width: 100%; max-width: 1050mm; margin: 0 auto; box-shadow: 0 20px 50px rgba(0,0,0,0.1); border-radius: 20px; overflow: hidden; }
         .section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.2em; color: var(--primary); font-weight: 800; margin-bottom: 24px; display: flex; align-items: center; gap: 12px; }
-        .section-title::after { content: ""; flex: 1; height: 1px; background: #f1f5f9; }
-        .data-card { background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 16px; padding: 24px; }
+        .section-title::after { content: ""; flex: 1; height: 1px; background: var(--border-color); var(--border-color); }
+        .data-card { background: var(--surface-hover); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; }
       `}</style>
 
       <div
@@ -546,7 +546,7 @@ export default function ReportV2() {
           {/* SECTION 3: RISK REGISTER */}
           <section style={{ marginBottom: 60 }}>
             <div className="section-title">03. Identified Risks & Vulnerabilities</div>
-            <div style={{ overflow: "hidden", borderRadius: 16, border: "1px solid #e2e8f0" }}>
+            <div style={{ overflow: "hidden", borderRadius: 16, border: "1px solid var(--border-color)" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
                 <thead>
                   <tr style={{ background: "var(--surface-hover)", textAlign: "left", borderBottom: "2px solid #e2e8f0" }}>
@@ -699,7 +699,7 @@ export default function ReportV2() {
             <h3 style={{ fontSize: "0.9rem", fontWeight: 800, color: "var(--text-main)", marginBottom: 16 }}>
               Primary Remediation Targets (Top 5)
             </h3>
-            <div style={{ overflow: "hidden", borderRadius: 16, border: "1px solid #e2e8f0" }}>
+            <div style={{ overflow: "hidden", borderRadius: 16, border: "1px solid var(--border-color)" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
                 <thead>
                   <tr style={{ background: "var(--surface-hover)", textAlign: "left" }}>
@@ -805,7 +805,7 @@ export default function ReportV2() {
                 </div>
               </div>
 
-              <div style={{ background: "var(--surface-hover)", padding: "40px", borderRadius: 24, border: "1px solid #e2e8f0" }}>
+              <div style={{ background: "var(--surface-hover)", padding: "40px", borderRadius: 24, border: "1px solid var(--border-color)" }}>
                 <h4 style={{ margin: "0 0 16px 0", fontSize: "1.1rem", fontWeight: 800, color: "var(--text-main)" }}>Strategic Justification</h4>
                 <p style={{ fontSize: "1rem", color: "var(--text-main)", lineHeight: 1.8, margin: 0 }}>
                   {data.insurance_readiness?.cyber_insurance_recommendation?.reasoning}
@@ -871,9 +871,9 @@ export default function ReportV2() {
                     key={i}
                     style={{
                       padding: "24px 32px",
-                      border: "1px solid #e2e8f0",
+                      border: "1px solid var(--border-color)",
                       borderRadius: "16px",
-                      background: "var(--text-on-dark)",
+                      background: "var(--surface)",
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "flex-start",
@@ -916,7 +916,7 @@ export default function ReportV2() {
                         </span>
                       </div>
                       <h3 style={{ margin: "0 0 10px", fontSize: "1.1rem", fontWeight: 800, color: "var(--text-main)" }}>{rec.issue}</h3>
-                      <div style={{ background: "var(--surface-hover)", padding: 16, borderRadius: 10, border: "1px solid #f1f5f9" }}>
+                      <div style={{ background: "var(--surface-hover)", padding: 16, borderRadius: 10, border: "1px solid var(--border-color)" }}>
                         <div
                           style={{
                             fontSize: "0.65rem",

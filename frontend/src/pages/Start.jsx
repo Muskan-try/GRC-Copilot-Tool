@@ -115,14 +115,18 @@ export default function Start() {
   const [overlayInfo, setOverlayInfo] = useState(null);
   const [activeSummary, setActiveSummary] = useState(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchStats = async () => {
+    setRefreshing(true);
     try {
       const res = await listDashboards();
       setAssessments(res.assessments || []);
     } catch (err) {
       console.error("Failed to fetch dashboard stats:", err);
       toast.addToast("Failed to load assessments", "error");
+    } finally {
+      setTimeout(() => setRefreshing(false), 400);
     }
   };
 
@@ -374,7 +378,7 @@ export default function Start() {
                     width: 16,
                     height: 16,
                     borderRadius: "50%",
-                    background: "#fff",
+                    background: "var(--surface)",
                     position: "absolute",
                     top: 2,
                     left: theme === "dark" ? 18 : 2,
@@ -399,9 +403,13 @@ export default function Start() {
                 fontSize: "0.8rem",
                 fontWeight: 600,
                 cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
               }}
             >
-              Refresh
+              <span style={{ display: refreshing ? "inline-block" : "none", width: 12, height: 12, border: "2px solid var(--text-light)", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />
+              {refreshing ? "Refreshing..." : "Refresh"}
             </button>
             <div style={{ textAlign: "right", fontSize: "0.85rem", color: "var(--text-muted)" }}>
               Welcome, <strong>{user?.email?.split("@")[0]}</strong>

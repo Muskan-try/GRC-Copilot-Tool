@@ -130,6 +130,7 @@ async function runMigrations() {
     await query(`ALTER TABLE responses ADD COLUMN IF NOT EXISTS domain VARCHAR(100)`);
     await query(`ALTER TABLE responses ADD COLUMN IF NOT EXISTS control VARCHAR(100)`);
     await query(`ALTER TABLE responses ADD COLUMN IF NOT EXISTS critical BOOLEAN DEFAULT false`);
+    await query(`ALTER TABLE responses ADD COLUMN IF NOT EXISTS auto_answered BOOLEAN DEFAULT false`);
   } catch (e) {
     // Ignore
   }
@@ -294,6 +295,94 @@ async function runMigrations() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+
+
+
+
+  // --- COMPLIANCE CALENDAR EVENTS TABLE ---
+  await query(`CREATE TABLE IF NOT EXISTS compliance_events (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title VARCHAR(255) NOT NULL,
+      event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('audit_date', 'certification_expiry', 'policy_review', 'regulatory_filing', 'custom')),
+      description TEXT,
+      event_date DATE NOT NULL,
+      reminder_days INTEGER DEFAULT 30,
+      is_reminded BOOLEAN DEFAULT false,
+      framework VARCHAR(100),
+      status VARCHAR(50) DEFAULT 'upcoming' CHECK (status IN ('upcoming', 'completed', 'overdue')),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+
+  await query(`CREATE INDEX IF NOT EXISTS idx_events_user_id ON compliance_events(user_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_events_date ON compliance_events(event_date)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_events_type ON compliance_events(event_type)`);
+  // --- AUDIT LOG TABLE ---
+  await query(`CREATE TABLE IF NOT EXISTS audit_logs (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      action VARCHAR(100) NOT NULL,
+      resource_type VARCHAR(50) NOT NULL,
+      resource_id VARCHAR(255),
+      details JSONB DEFAULT '{}',
+      ip_address VARCHAR(45),
+      user_agent TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+
+  // Audit log query indexes
+  await query(`CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_audit_logs_resource_type ON audit_logs(resource_type)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC)`);
+  // --- REASSESSMENT SCHEDULES TABLE ---
+  await query(`CREATE TABLE IF NOT EXISTS reassessment_schedules (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      assessment_id UUID NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      interval_days INTEGER NOT NULL DEFAULT 90 CHECK (interval_days IN (30, 60, 90, 180, 365)),
+      next_due TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '90 days',
+      enabled BOOLEAN DEFAULT true,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(assessment_id)
+    )`);
+
+  await query(`CREATE INDEX IF NOT EXISTS idx_schedules_next_due ON reassessment_schedules(next_due)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_schedules_user_id ON reassessment_schedules(user_id)`);
+
+  // --- COMPLIANCE SNAPSHOTS TABLE ---
+  await query(`CREATE TABLE IF NOT EXISTS compliance_snapshots (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      assessment_id UUID NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
+      framework VARCHAR(100) NOT NULL,
+      compliance_score DECIMAL(5,2),
+      risk_level VARCHAR(50),
+      answered_questions INTEGER DEFAULT 0,
+      total_questions INTEGER DEFAULT 0,
+      snapshot_type VARCHAR(50) DEFAULT 'auto' CHECK (snapshot_type IN ('auto', 'manual', 'initial')),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+
+  await query(`CREATE INDEX IF NOT EXISTS idx_snapshots_assessment_id ON compliance_snapshots(assessment_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_snapshots_created_at ON compliance_snapshots(created_at DESC)`);
+
+  // --- NOTIFICATIONS TABLE ---
+  await query(`CREATE TABLE IF NOT EXISTS notifications (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title VARCHAR(255) NOT NULL,
+      message TEXT NOT NULL,
+      notification_type VARCHAR(50) DEFAULT 'info' CHECK (notification_type IN ('info', 'warning', 'reminder', 'success')),
+      link VARCHAR(255),
+      is_read BOOLEAN DEFAULT false,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+
+  await query(`CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(user_id, is_read) WHERE is_read = false`);
+
 
   // Create indexes for new tables
   await query(`CREATE INDEX IF NOT EXISTS idx_controls_framework_id ON controls(framework_id)`);

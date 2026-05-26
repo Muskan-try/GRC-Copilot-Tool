@@ -13,6 +13,8 @@ import QuestionnaireEnhanced from "./pages/QuestionnaireEnhanced";
 import DashboardV2 from "./pages/DashboardV2";
 import ReportV2 from "./pages/ReportV2";
 import ComplianceAgent from "./pages/ComplianceAgent";
+import AuditLogs from "./pages/AuditLogs";
+import ComplianceCalendar from "./pages/ComplianceCalendar";
 
 function RequireAuth({ children }) {
   return isAuthenticated() ? children : <Navigate to="/" replace />;
@@ -35,6 +37,8 @@ export default function App() {
               <Route path="/dashboard-v2/:id" element={<RequireAuth><DashboardV2 /></RequireAuth>} />
               <Route path="/report-v2/:id" element={<RequireAuth><ReportV2 /></RequireAuth>} />
               <Route path="/agent" element={<RequireAuth><ComplianceAgent /></RequireAuth>} />
+              <Route path="/audit-logs" element={<RequireAuth><AuditLogs /></RequireAuth>} />
+              <Route path="/compliance-calendar" element={<RequireAuth><ComplianceCalendar /></RequireAuth>} />
               {/* Legacy redirects */}
               <Route path="/dashboard" element={<Navigate to="/start" replace />} />
               <Route path="/report" element={<Navigate to="/start" replace />} />

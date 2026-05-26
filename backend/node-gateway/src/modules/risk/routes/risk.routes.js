@@ -2,6 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { authenticate } = require('../../../middleware/auth');
 const riskService = require('../services/risk.service');
+const audit = require('../../../services/audit.service');
 const router = express.Router();
 
 /**
@@ -12,6 +13,7 @@ router.get('/assessment/:id', authenticate, async (req, res, next) => {
   try {
     const { id } = req.params;
     const risks = await riskService.getRisksByAssessment(id, req.user.user_id);
+    audit.log(req.user.user_id, audit.AUDIT_ACTIONS.AUDIT_LOG_VIEW, 'risk', id, { count: risks?.length || 0 }, req).catch(() => {});
     res.json({ risks });
   } catch (err) {
     next(err);
@@ -45,6 +47,7 @@ router.patch(
         return res.status(404).json({ error: 'Risk not found or unauthorized.' });
       }
       
+      audit.log(req.user.user_id, audit.AUDIT_ACTIONS.RISK_UPDATE, 'risk', riskId, { status }, req).catch(() => {});
       res.json(result);
     } catch (err) {
       next(err);

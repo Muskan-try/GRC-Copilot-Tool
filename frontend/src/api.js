@@ -309,3 +309,65 @@ export async function runComplianceAgent(file) {
 export async function getComplianceReport(reportId) {
   return request(`/agent/compliance/report/${reportId}`);
 }
+
+export async function autoAnswerPolicy(file, assessmentId, orgWebsite) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("assessment_id", assessmentId);
+  if (orgWebsite) formData.append("org_website", orgWebsite);
+
+  const url = `${API_BASE}/agent/compliance/auto-answer`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${authToken}` },
+    body: formData,
+  });
+
+  return res.json();
+}
+
+// ─── Audit Log API ────────────────────────────────────────────────────────
+
+export async function getAuditLogs({ userId, action, resourceType, resourceId, limit = 100, offset = 0, from, to } = {}) {
+  const params = new URLSearchParams();
+  if (userId) params.set('user_id', userId);
+  if (action) params.set('action', action);
+  if (resourceType) params.set('resource_type', resourceType);
+  if (resourceId) params.set('resource_id', resourceId);
+  if (limit) params.set('limit', limit);
+  if (offset) params.set('offset', offset);
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const qs = params.toString();
+  return request(`/audit/logs${qs ? `?${qs}` : ''}`);
+}
+
+export async function getAuditStats() {
+  return request('/audit/stats');
+}
+
+// ─── Compliance Calendar API ──────────────────────────────────────────────
+
+export async function getCalendarEvents(params = {}) {
+  const qs = new URLSearchParams();
+  if (params.type) qs.set('type', params.type);
+  if (params.status) qs.set('status', params.status);
+  if (params.year) qs.set('year', params.year);
+  if (params.month) qs.set('month', params.month);
+  if (params.from) qs.set('from', params.from);
+  if (params.to) qs.set('to', params.to);
+  const s = qs.toString();
+  return request(`/calendar/events${s ? `?${s}` : ''}`);
+}
+
+export async function createCalendarEvent(data) {
+  return request('/calendar/events', { method: 'POST', body: data });
+}
+
+export async function updateCalendarEvent(id, data) {
+  return request(`/calendar/events/${id}`, { method: 'PUT', body: data });
+}
+
+export async function deleteCalendarEvent(id) {
+  return request(`/calendar/events/${id}`, { method: 'DELETE' });
+}

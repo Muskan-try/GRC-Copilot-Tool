@@ -48,6 +48,7 @@ router.get('/:assessmentId', authenticate, async (req, res, next) => {
       [assessmentId]
     );
 
+    audit.log(req.user.user_id, audit.AUDIT_ACTIONS.AUDIT_LOG_VIEW, 'dashboard', assessmentId, {}, req).catch(() => {});
     res.json({
       assessment_id: assessmentId,
       status: 'complete',

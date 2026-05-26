@@ -111,7 +111,7 @@ export default function Start() {
   const user = getCurrentUser();
   const [assessments, setAssessments] = useState([]);
   const [overlayInfo, setOverlayInfo] = useState(null);
-  const [activeSummary, setActiveSummary] = useState(null); // { status: 'complete'|'pending'|'all', type: string|null }
+  const [activeSummary, setActiveSummary] = useState(null);
 
   const fetchStats = async () => {
     try {
@@ -125,7 +125,6 @@ export default function Start() {
 
   useEffect(() => {
     fetchStats();
-    // Auto-poll every 5 seconds so new/completed assessments appear automatically
     const interval = setInterval(fetchStats, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -247,7 +246,13 @@ export default function Start() {
           ))}
         </nav>
 
-        <div style={{ padding: "24px", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+        <div style={{ padding: "24px", borderTop: "1px solid rgba(255,255,255,0.05)", display: "flex", flexDirection: "column", gap: 8 }}>
+          <button className="btn btn-back" style={{ width: "100%", marginBottom: 0 }} onClick={() => navigate("/audit-logs")}>
+            Audit Trail
+          </button>
+          <button className="btn btn-back" style={{ width: "100%", marginBottom: 0 }} onClick={() => navigate("/compliance-calendar")}>
+            Calendar
+          </button>
           <button className="btn btn-back" style={{ width: "100%", marginBottom: 0 }} onClick={handleLogout}>
             Logout
           </button>
@@ -495,6 +500,7 @@ export default function Start() {
             </div>
           </div>
         </div>
+
       </div>
 
       {/* OVERLAY MODAL */}

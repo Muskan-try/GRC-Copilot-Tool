@@ -5,6 +5,7 @@ const { body, validationResult } = require('express-validator');
 const { query } = require('../config/postgres');
 const { authenticate } = require('../middleware/auth');
 const logger = require('../config/logger');
+const audit = require('../services/audit.service');
 
 const router = express.Router();
 
@@ -63,6 +64,7 @@ router.post(
       );
 
       logger.info(`New user registered: ${email}`);
+      audit.log(user.id, audit.AUDIT_ACTIONS.USER_REGISTER, 'user', user.id, { email, org_name }, req).catch(() => {});
       res.status(201).json({
         user_id: user.id,
         email: user.email,
@@ -127,6 +129,7 @@ router.post(
       );
 
       logger.info(`User logged in: ${email}`);
+      audit.log(user.id, audit.AUDIT_ACTIONS.USER_LOGIN, 'user', user.id, { email }, req).catch(() => {});
       res.json({
         token,
         user_id: user.id,
@@ -222,6 +225,7 @@ router.put(
       );
 
       res.json({ message: 'Password changed successfully.' });
+      audit.log(req.user.user_id, audit.AUDIT_ACTIONS.USER_PASSWORD_CHANGE, 'user', req.user.user_id, {}, req).catch(() => {});
     } catch (err) {
       next(err);
     }

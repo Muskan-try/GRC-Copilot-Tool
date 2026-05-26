@@ -1,6 +1,7 @@
 const express = require('express');
 const { authenticate } = require('../../../middleware/auth');
 const reportingService = require('../services/reporting.service');
+const audit = require('../../../services/audit.service');
 const router = express.Router();
 
 /**
@@ -37,6 +38,7 @@ router.get('/assessment/:id', authenticate, async (req, res, next) => {
 router.post('/:assessment_id/generate', authenticate, async (req, res, next) => {
   try {
     const result = await reportingService.generateFullReport(req.params.assessment_id);
+    audit.log(req.user.user_id, audit.AUDIT_ACTIONS.REPORT_VIEW, 'report', id, { format }, req).catch(() => {});
     res.json(result);
   } catch (err) {
     next(err);

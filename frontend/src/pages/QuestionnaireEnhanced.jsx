@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getQuestionsV2, submitResponseV2, uploadEvidenceV2, completeAssessmentV2 } from "../api";
+import { getQuestionsV2, submitResponseV2, uploadEvidenceV2, completeAssessmentV2, autoAnswerPolicy } from "../api";
 import { useToast } from "../components/Toast";
 
 const STORAGE_KEY = "enhanced_questionnaire_progress";
@@ -116,9 +116,20 @@ export default function QuestionnaireEnhanced() {
     if (!currentQuestion) return;
     const qid = currentQuestion.question_id;
     const prev = answers[qid] || {};
-    const newAnswers = { ...answers, [qid]: { ...prev, compliance: val, is_na: val === 3 } };
+    const isNa = val === 3;
+    const maturity = isNa ? 0 : prev.maturity;
+    const newAnswers = { ...answers, [qid]: { ...prev, compliance: val, maturity, is_na: isNa } };
     setAnswers(newAnswers);
     await submitAnswer(qid, newAnswers[qid], currentQuestion);
+    if (isNa) {
+      setTimeout(() => {
+        if (currentIndex < questions.length - 1) {
+          setCurrentIndex(currentIndex + 1);
+        } else {
+          setView("review");
+        }
+      }, 350);
+    }
   };
 
   const handleMaturitySelect = async (val) => {
@@ -128,6 +139,13 @@ export default function QuestionnaireEnhanced() {
     const newAnswers = { ...answers, [qid]: { ...prev, maturity: val } };
     setAnswers(newAnswers);
     await submitAnswer(qid, newAnswers[qid], currentQuestion);
+    setTimeout(() => {
+      if (currentIndex < questions.length - 1) {
+        setCurrentIndex(currentIndex + 1);
+      } else {
+        setView("review");
+      }
+    }, 350);
   };
 
   const submitAnswer = async (qid, ans, question) => {
@@ -432,6 +450,49 @@ export default function QuestionnaireEnhanced() {
             );
           })}
         </div>
+
+        <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border-color)", marginTop: "auto" }}>
+          <div id="auto-answer-status" style={{ fontSize: "0.6rem", color: "#94a3b8", marginBottom: 6, textAlign: "center", minHeight: 16 }}>
+            Upload a policy to auto-fill matching controls
+          </div>
+          <button
+            className="btn btn-outline"
+            id="auto-answer-btn"
+            onClick={async () => {
+              const btn = document.getElementById('auto-answer-btn');
+              const status = document.getElementById('auto-answer-status');
+              const input = document.createElement('input');
+              input.type = 'file';
+              input.accept = '.pdf,.docx,.txt';
+              input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                btn.disabled = true;
+                btn.textContent = '⏳ Scanning policy...';
+                status.textContent = 'Parsing document → extracting controls → matching questions...';
+                try {
+                  const result = await autoAnswerPolicy(file, assessmentId);
+                  const msg = result.matched_count > 0
+                    ? `✅ Auto-answered ${result.matched_count}/${result.total_questions} questions`
+                    : `⚠️ No matches found (${result.total_questions || 0} questions in assessment)`;
+                  status.textContent = msg + (result.website_scanned ? ' · 🌐 Website scanned' : '') + (result.organization_detected ? ` · 🏢 ${result.organization_detected}` : '');
+                  toast.addToast(msg, result.matched_count > 0 ? "success" : "info");
+                  if (result.matched_count > 0) await loadQuestions();
+                } catch (err) {
+                  status.textContent = '❌ Scan failed: ' + (err.message || 'Error');
+                  toast.addToast("Auto-answer failed", "error");
+                } finally {
+                  btn.disabled = false;
+                  btn.textContent = '📄 Auto-Answer from Policy';
+                }
+              };
+              input.click();
+            }}
+            style={{ width: "100%", fontSize: "0.8rem", padding: "10px 12px", marginBottom: 0 }}
+          >
+            📄 Auto-Answer from Policy
+          </button>
+        </div>
       </div>
 
       <div className="questionnaire-main">
@@ -560,19 +621,23 @@ export default function QuestionnaireEnhanced() {
             </div>
           </div>
 
-          <div className="question-navigation">
-            <button className="btn btn-outline" onClick={prev} disabled={currentIndex === 0}>
+          <div className="question-navigation" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 0", marginTop: 16, borderTop: "1px solid var(--border-color)" }}>
+            <button className="btn btn-outline" onClick={prev} disabled={currentIndex === 0}
+              style={{ padding: "10px 20px", fontSize: "0.85rem", fontWeight: 600, borderRadius: 8, opacity: currentIndex === 0 ? 0.4 : 1 }}>
               ← Previous
             </button>
 
-            <div className="nav-info">
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#94a3b8", background: "#f1f5f9", padding: "4px 12px", borderRadius: 20 }}>
+                {currentIndex + 1} / {questions.length}
+              </span>
               <span className="weight-badge">Weight: {currentQuestion?.weight}x</span>
-              {currentQuestion?.critical && <span className="critical-indicator">Critical Control</span>}
+              {currentQuestion?.critical && <span className="critical-indicator">Critical</span>}
             </div>
 
-            <button className="btn btn-primary" onClick={next}>
-              {currentIndex === questions.length - 1 ? "Review All →" : "Next →"}
-            </button>
+            <div style={{ fontSize: "0.8rem", color: "#94a3b8", fontWeight: 600, background: "#f1f5f9", padding: "4px 12px", borderRadius: 20 }}>
+              {questions.length - currentIndex - 1} left
+            </div>
           </div>
         </div>
       </div>

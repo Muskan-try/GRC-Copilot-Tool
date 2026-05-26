@@ -2,6 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const { authenticate } = require('../../../middleware/auth');
 const questionnaireService = require('../services/questionnaire.service');
+const audit = require('../../../services/audit.service');
 const router = express.Router();
 
 /**
@@ -29,6 +30,7 @@ router.get('/framework/:name/questions', authenticate, async (req, res, next) =>
   try {
     const { name } = req.params;
     const questions = await questionnaireService.getQuestionsByFrameworkName(name);
+    audit.log(req.user.user_id, audit.AUDIT_ACTIONS.QUESTIONNAIRE_START, 'assessment', id, { question_count: questions?.length || 0 }, req).catch(() => {});
     res.json({ questions });
   } catch (err) {
     next(err);

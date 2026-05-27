@@ -12,12 +12,12 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 # The schemas remain EXACTLY the same as before
 class ExtractedControlItem(BaseModel):
-    evidence_id: str = Field(description="A sequential tracking identifier like CTRL-01, CTRL-02")
-    control_heading: str = Field(description="A short, clear name for the identified security practice")
-    control_text: str = Field(description="The exact literal text or descriptive sentence proving the security measure")
+    evidence_id: str = Field(default="N/A", description="A sequential tracking identifier like CTRL-01, CTRL-02")
+    control_heading: str = Field(default="Unnamed Control", description="A short, clear name for the identified security practice")
+    control_text: str = Field(default="", description="The exact literal text or descriptive sentence proving the security measure")
 
 class ExtractionPayload(BaseModel):
-    controls_found: List[ExtractedControlItem]
+    controls_found: List[ExtractedControlItem] = Field(default_factory=list)
 
 # --- FILE PARSING ENGINE (Stays identical) ---
 def extract_text_from_file(file_path: str) -> str:
@@ -36,6 +36,9 @@ def extract_text_from_file(file_path: str) -> str:
             text = page.extract_text()
             if text:
                 extracted_text += text + "\n"
+    elif ext in (".txt", ".text"):
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            extracted_text = f.read()
     return extracted_text.strip()
 
 def is_security_policy(raw_text: str) -> bool:

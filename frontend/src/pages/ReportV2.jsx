@@ -85,7 +85,7 @@ function RiskHeatMap({ risks }) {
               const score = likelihood * impact;
               const color = score >= 15 ? "#fee2e2" : score >= 8 ? "#fef3c7" : "#f0fdf4";
               const dotColor = score >= 15 ? "#ef4444" : score >= 8 ? "#f59e0b" : "#22c55e";
-              const count = (risks || []).filter((r) => r.likelihood === likelihood && r.impact === impact).length;
+              const count = (risks || []).filter((r) => Number(r.likelihood) === likelihood && Number(r.impact) === impact).length;
 
               return (
                 <div
@@ -216,14 +216,32 @@ export default function ReportV2() {
     );
   }
 
-  const report_metadata = data.report_metadata || {};
-  const executive_summary = data.executive_summary || "";
-  const compliance_overview = data.compliance_overview || {};
   const gap_analysis = data.gap_analysis || {};
-  const recommendations = data.recommendations || [];
+  // Handle different recommendation field names from backend (recommendations vs remediation_roadmap)
+  const recommendations = data.recommendations || data.remediation_roadmap || [];
   const financial_summary = data.financial_summary || null;
   // Support both FastAPI response (risk_register) and fallback (risk_analysis.risks)
   const risk_register = data.risk_register || data.risk_analysis?.risks || [];
+
+  const executive_summary = data.executive_summary || "";
+  const compliance_overview = data.compliance_overview || {};
+
+  const sessionFormData = JSON.parse(sessionStorage.getItem("assessmentFormData") || "{}");
+  const report_metadata = {
+    ...data.report_metadata,
+    organization: (data.report_metadata?.organization && data.report_metadata.organization !== "N/A") 
+      ? data.report_metadata.organization 
+      : (sessionFormData.orgName || "N/A"),
+    framework: (data.report_metadata?.framework && data.report_metadata.framework !== "N/A") 
+      ? data.report_metadata.framework 
+      : (sessionStorage.getItem("compliance") || "N/A"),
+    generated_at: data.report_metadata?.generated_at || new Date().toISOString(),
+    scope: {
+      industry: data.report_metadata?.scope?.industry || sessionFormData.industry || "N/A",
+      region: data.report_metadata?.scope?.region || sessionFormData.region || "Global",
+      ...data.report_metadata?.scope
+    }
+  };
 
   return (
     <div

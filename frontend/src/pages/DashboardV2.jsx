@@ -35,17 +35,29 @@ function RiskRadar({ data }) {
   return (
     <div style={{ textAlign: "center" }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <defs>
+          <radialGradient id="radarGrad" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+            <stop offset="0%" stopColor="rgba(59, 130, 246, 0.4)" />
+            <stop offset="100%" stopColor="rgba(59, 130, 246, 0.05)" />
+          </radialGradient>
+        </defs>
         {axisLines}
         {domains.map((d, idx) => {
-          const x = center + (radius + 15) * Math.cos(idx * angleStep - Math.PI / 2);
-          const y = center + (radius + 15) * Math.sin(idx * angleStep - Math.PI / 2);
+          const x = center + (radius + 20) * Math.cos(idx * angleStep - Math.PI / 2);
+          const y = center + (radius + 20) * Math.sin(idx * angleStep - Math.PI / 2);
           return (
             <text key={idx} x={x} y={y} fontSize="8" textAnchor="middle" fill="#94a3b8" fontWeight="700">
-              {d.name?.substring(0, 10)}
+              {d.name?.substring(0, 15)}
             </text>
           );
         })}
-        <polygon points={dataPoints} fill="rgba(59, 130, 246, 0.15)" stroke="var(--primary)" strokeWidth="2" />
+        <polygon points={dataPoints} fill="url(#radarGrad)" stroke="var(--primary)" strokeWidth="2" strokeLinejoin="round" />
+        {domains.map((d, idx) => {
+          const scale = (d.score || 0) / 100;
+          const x = center + radius * scale * Math.cos(idx * angleStep - Math.PI / 2);
+          const y = center + radius * scale * Math.sin(idx * angleStep - Math.PI / 2);
+          return <circle key={idx} cx={x} cy={y} r="3" fill="var(--primary)" stroke="#fff" strokeWidth="1.5" />;
+        })}
       </svg>
     </div>
   );
@@ -60,18 +72,20 @@ function RiskHeatMap({ risks }) {
       <div style={{ display: "grid", gridTemplateColumns: "25px repeat(5, 1fr)", gap: 3 }}>
         <div />
         {[1, 2, 3, 4, 5].map((i) => (
-          <div key={i} style={{ textAlign: "center", fontSize: "0.65rem", color: "#94a3b8" }}>
-            {i}
+          <div key={i} style={{ textAlign: "center", fontSize: "0.6rem", color: "#94a3b8", fontWeight: 800 }}>
+            IMP {i}
           </div>
         ))}
         {levels.map((likelihood) => (
           <span key={likelihood}>
-            <div style={{ alignSelf: "center", fontSize: "0.65rem", color: "#94a3b8" }}>{likelihood}</div>
+            <div style={{ alignSelf: "center", fontSize: "0.6rem", color: "#94a3b8", fontWeight: 800 }}>
+              L{likelihood}
+            </div>
             {[1, 2, 3, 4, 5].map((impact) => {
               const score = likelihood * impact;
               const color = score >= 15 ? "#fee2e2" : score >= 8 ? "#fef3c7" : "#f0fdf4";
               const dotColor = score >= 15 ? "#ef4444" : score >= 8 ? "#f59e0b" : "#22c55e";
-              const count = (risks || []).filter((r) => r.likelihood === likelihood && r.impact === impact).length;
+              const count = (risks || []).filter((r) => Number(r.likelihood) === likelihood && Number(r.impact) === impact).length;
 
               return (
                 <div
@@ -84,13 +98,14 @@ function RiskHeatMap({ risks }) {
                     alignItems: "center",
                     justifyContent: "center",
                     borderRadius: 4,
+                    position: "relative",
                   }}
                 >
                   {count > 0 && (
                     <div
                       style={{
-                        width: 20,
-                        height: 20,
+                        width: 22,
+                        height: 22,
                         background: dotColor,
                         borderRadius: "50%",
                         color: "#fff",
@@ -99,6 +114,8 @@ function RiskHeatMap({ risks }) {
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
+                        border: "2px solid #fff",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
                       }}
                     >
                       {count}
@@ -110,8 +127,16 @@ function RiskHeatMap({ risks }) {
           </span>
         ))}
       </div>
-      <div style={{ textAlign: "center", marginTop: 8, fontSize: "0.7rem", color: "#94a3b8", fontWeight: 600 }}>
-        Risk Heatmap
+      <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.6rem", color: "#64748b" }}>
+          <div style={{ width: 8, height: 8, borderRadius: 2, background: "#f0fdf4" }} /> Low
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.6rem", color: "#64748b" }}>
+          <div style={{ width: 8, height: 8, borderRadius: 2, background: "#fef3c7" }} /> Med
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.6rem", color: "#64748b" }}>
+          <div style={{ width: 8, height: 8, borderRadius: 2, background: "#fee2e2" }} /> High
+        </div>
       </div>
     </div>
   );
@@ -144,9 +169,12 @@ export default function DashboardV2() {
           getReportV2(assessmentId).catch(() => null),
         ]);
         setDashboard(dbData);
-        setRisks(riskData.risks || riskData || []);
         setGaps(gapData);
         setReport(reportData);
+
+        // Prioritize risks from report for consistency
+        const reportRisks = reportData?.risk_register || reportData?.risk_analysis?.risks;
+        setRisks(reportRisks || riskData.risks || riskData || []);
 
         // Set default currency from backend
         if (dbData.insurance_readiness?.cyber_insurance_recommendation?.default_currency) {
@@ -205,10 +233,21 @@ export default function DashboardV2() {
 
   const stats = dashboard.stats || {};
   const compliance_chart = dashboard.compliance_chart || {};
-  const metadata = dashboard.metadata || {};
+  const sessionFormData = JSON.parse(sessionStorage.getItem("assessmentFormData") || "{}");
+  const metadata = {
+    ...dashboard.metadata,
+    organization: (dashboard.metadata?.organization && dashboard.metadata.organization !== "N/A") 
+      ? dashboard.metadata.organization 
+      : (sessionFormData.orgName || "Organization"),
+    framework: (dashboard.metadata?.framework && dashboard.metadata.framework !== "N/A") 
+      ? dashboard.metadata.framework 
+      : (sessionStorage.getItem("compliance") || "Framework"),
+  };
   const activity = dashboard.activity || [];
   const domain_progress = dashboard.domain_progress || [];
   const evidence_stats = dashboard.evidence_stats || {};
+
+  const radarData = report?.compliance_overview?.domain_breakdown || compliance_chart.domain_scores || [];
 
   const assessmentType = metadata.assessment_type || "compliance_assessment";
   const typeLabel = assessmentType.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
@@ -480,7 +519,7 @@ export default function DashboardV2() {
             <h3 style={{ fontSize: "0.85rem", textTransform: "uppercase", color: "#64748b", marginBottom: 20 }}>
               Domain Performance Radar
             </h3>
-            <RiskRadar data={compliance_chart.domain_scores} />
+            <RiskRadar data={radarData} />
           </div>
           <div className="card" style={{ padding: 24, borderRadius: 12, maxWidth: "none" }}>
             <h3 style={{ fontSize: "0.85rem", textTransform: "uppercase", color: "#64748b", marginBottom: 20 }}>

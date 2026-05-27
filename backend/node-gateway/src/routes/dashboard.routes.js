@@ -2,6 +2,7 @@ const express = require('express');
 const { query } = require('../config/postgres');
 const { Report } = require('../config/mongo');
 const { authenticate } = require('../middleware/auth');
+const logger = require('../config/logger');
 
 const router = express.Router();
 
@@ -108,18 +109,25 @@ router.get('/:assessmentId', authenticate, async (req, res, next) => {
 // GET /api/dashboard (list all assessments for user)
 router.get('/', authenticate, async (req, res, next) => {
   try {
-    const result = await query(
-      `SELECT a.id, a.framework, a.analysis_depth, a.assessment_type, a.status,
-              a.compliance_score, a.risk_level, a.total_questions,
-              a.answered_questions, a.created_at, a.completed_at,
-              o.name AS org_name, o.industry
-       FROM assessments a
-       JOIN organizations o ON o.id = a.org_id
-       WHERE a.user_id = $1
-       ORDER BY a.created_at DESC
-       LIMIT 20`,
-      [req.user.user_id]
-    );
+    let pgAssessments = [];
+    try {
+      const result = await query(
+        `SELECT a.id, a.framework, a.analysis_depth, a.assessment_type, a.status,
+                a.compliance_score, a.risk_level, a.total_questions,
+                a.answered_questions, a.created_at, a.completed_at,
+                o.name AS org_name, o.industry
+         FROM assessments a
+         JOIN organizations o ON o.id = a.org_id
+         WHERE a.user_id = $1
+         ORDER BY a.created_at DESC
+         LIMIT 20`,
+        [req.user.user_id]
+      );
+      pgAssessments = result.rows;
+    } catch (dbErr) {
+      logger.warn(`PostgreSQL is offline, activating standalone dashboard list fallback: ${dbErr.message}`);
+      pgAssessments = [];
+    }
 
     // Also fetch AI Compliance Agent assessments from FastAPI
     let agentAssessments = [];
@@ -138,8 +146,8 @@ router.get('/', authenticate, async (req, res, next) => {
       // Silently skip — FastAPI may not be running
     }
 
-    const allAssessments = [...agentAssessments, ...result.rows];
-    res.json({ assessments: allAssessments, total: allAssessments.length });
+    const allAssessments = [...agentAssessments, ...pgAssessments];
+    res.json({ assessments: allAssessments, total: allAssessments.length, standalone: true });
   } catch (err) {
     next(err);
   }

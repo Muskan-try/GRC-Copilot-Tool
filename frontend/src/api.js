@@ -287,9 +287,10 @@ export async function uploadPolicy(file) {
   return data;
 }
 
-export async function runComplianceAgent(file) {
+export async function runComplianceAgent(file, framework = 'all') {
   const formData = new FormData();
   formData.append("file", file);
+  formData.append("target_framework", framework);
 
   const url = `${API_BASE}/agent/compliance/run`;
   const res = await fetch(url, {

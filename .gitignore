@@ -37,3 +37,10 @@ backend/fastapi-engine/logs/
 database-export.json
 .env
 .env
+
+# Ignore local temp and scratch files
+.site-packages-temp/
+query
+
+# Ignore local database and vector storage states
+backend/grc_vector_db/

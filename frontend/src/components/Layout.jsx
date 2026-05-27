@@ -88,7 +88,7 @@ export default function Layout({ children }) {
         </div>
       </header>
 
-      <main style={{ flex: 1 }}>{children}</main>
+      <main style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "stretch", width: "100%", maxWidth: "100%" }}>{children}</main>
     </div>
   );
 }

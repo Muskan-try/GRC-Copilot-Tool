@@ -32,6 +32,13 @@ reports_db: Dict[str, Dict] = {}
 # Content-hash → report cache: same file always returns the same result
 content_hash_cache: Dict[str, Dict] = {}
 
+# Clear cache on reload to ensure filtered results are fresh
+def clear_agent_cache():
+    content_hash_cache.clear()
+    logger.info("Agent content cache cleared.")
+
+clear_agent_cache()
+
 async def get_pg_conn():
     if not database.pg_pool:
         raise HTTPException(status_code=500, detail="PostgreSQL pool not initialized")
@@ -54,16 +61,21 @@ async def upload_policy(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Failed to upload policy: {str(e)}")
 
 @router.post("/run")
-async def run_agent(file: UploadFile = File(...)):
+async def run_agent(
+    file: UploadFile = File(...),
+    target_framework: str = Form("all")
+):
     """Runs our new Multi-Agent Vector Pipeline on the uploaded policy, preserving existing DB integration."""
     try:
         content = await file.read()
         content_hash = hashlib.sha256(content).hexdigest()
+        
+        # Include target_framework in the cache key logic
+        cache_key = f"{content_hash}_{target_framework}"
 
-        # Keep your caching logic intact!
-        if content_hash in content_hash_cache:
-            cached = content_hash_cache[content_hash]
-            logger.info(f"Cache hit for {file.filename} (hash: {content_hash[:12]}...)")
+        if cache_key in content_hash_cache:
+            cached = content_hash_cache[cache_key]
+            logger.info(f"Cache hit for {file.filename} (framework: {target_framework})")
             cached["cached"] = True
             return cached
 
@@ -74,7 +86,7 @@ async def run_agent(file: UploadFile = File(...)):
 
         # --- STEP 2: Execute our new Multi-Agent Pipeline ---
         from app.agents.pipeline import execute_grc_agent_pipeline
-        mapping_payload, gap_report = execute_grc_agent_pipeline(temp_storage_path)
+        mapping_payload, gap_report = execute_grc_agent_pipeline(temp_storage_path, target_framework=target_framework)
 
         # Clean up filesystem asset cleanly
         if os.path.exists(temp_storage_path):
@@ -128,7 +140,7 @@ async def run_agent(file: UploadFile = File(...)):
             **report
         }
 
-        content_hash_cache[content_hash] = result
+        content_hash_cache[cache_key] = result
         return result
 
     except Exception as e:

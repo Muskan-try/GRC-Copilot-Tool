@@ -26,18 +26,21 @@ class ComplianceGapReport(BaseModel):
     compliance_recommendations: List[str] = Field(description="Actionable steps for engineering/management to remediate gaps")
 
 # 2. Tightened Auditor Agent Logic
-def run_auditor_agent(mapping_data: Any, raw_evidence_text: str) -> ComplianceGapReport:
+def run_auditor_agent(mapping_data: Any, raw_evidence_text: str, target_framework: str = "all") -> ComplianceGapReport:
     """Reviews the cross-framework mappings against the original asset text to compile gaps and risks."""
+    
+    framework_context = f"specifically the {target_framework} framework" if target_framework != "all" else "all supported compliance frameworks"
     
     system_instruction = (
         "You are an expert Chief Information Security Officer (CISO) and Lead External Compliance Auditor.\n"
-        "Your task is to analyze the extracted framework mappings of an uploaded compliance document and evaluate it against "
-        "the raw text baseline to construct a thorough gap and risk analysis.\n\n"
+        f"Your task is to analyze the extracted framework mappings of an uploaded compliance document and evaluate it against {framework_context} "
+        "to construct a thorough gap and risk analysis.\n\n"
         "CRITICAL OUTPUT RULES:\n"
         "1. You MUST output a single valid JSON object.\n"
         "2. The JSON object keys must be exactly: 'gaps_identified', 'open_risks', and 'compliance_recommendations'.\n"
         "3. Each key MUST contain a simple list of strings (List[str]).\n"
-        "4. DO NOT use nested objects, IDs, or dictionaries within these lists. Only plain text strings."
+        "4. DO NOT use nested objects, IDs, or dictionaries within these lists. Only plain text strings.\n"
+        f"5. Focus ONLY on gaps related to {framework_context}."
     )
 
     # Convert the mappings payload into a clear readable string text block for the LLM context
@@ -49,7 +52,7 @@ def run_auditor_agent(mapping_data: Any, raw_evidence_text: str) -> ComplianceGa
         model="llama-3.3-70b-versatile",
         messages=[
             {"role": "system", "content": system_instruction},
-            {"role": "user", "content": f"RAW POLICY DOCUMENT TEXT:\n{raw_evidence_text}\n\nFRAMEWORK MAPPINGS:\n{mappings_summary}"}
+            {"role": "user", "content": f"RAW POLICY DOCUMENT TEXT:\n{raw_evidence_text}\n\nFRAMEWORK MAPPINGS FOR {target_framework.upper()}:\n{mappings_summary}"}
         ],
         response_format={"type": "json_object"}
     )
@@ -66,7 +69,7 @@ def run_auditor_agent(mapping_data: Any, raw_evidence_text: str) -> ComplianceGa
 from loguru import logger
 
 # --- THE AGENT PIPELINE ORCHESTRATOR ---
-def execute_grc_agent_pipeline(file_name: str):
+def execute_grc_agent_pipeline(file_name: str, target_framework: str = "all"):
     """Orchestrates the entire Multi-Agent flow sequentially."""
     current_dir = os.getcwd()
     absolute_file_path = os.path.join(current_dir, file_name)
@@ -85,11 +88,11 @@ def execute_grc_agent_pipeline(file_name: str):
     extraction_payload = run_extractor_agent(raw_text)
     logger.info(f"-> Successfully extracted {len(extraction_payload.controls_found)} discrete controls.")
     
-    logger.info("[Step 3/4] Initializing Agent B: Mapping Controls to Vector Database...")
-    mapping_payload = run_mapper_agent(extraction_payload.controls_found)
+    logger.info(f"[Step 3/4] Initializing Agent B: Mapping Controls to Vector Database (Target: {target_framework})...")
+    mapping_payload = run_mapper_agent(extraction_payload.controls_found, target_framework=target_framework)
     
     logger.info("[Step 4/4] Initializing Agent C: Compiling Gap & Risk Analysis Audit...")
-    gap_report = run_auditor_agent(mapping_payload, raw_text)
+    gap_report = run_auditor_agent(mapping_payload, raw_text, target_framework=target_framework)
     gap_report.controls_found_count = len(extraction_payload.controls_found)
     
     logger.info("=================== PIPELINE EXECUTION SUCCESSFUL ===================\n")

@@ -47,6 +47,11 @@ router.post('/run', authenticate, upload.single('file'), async (req, res, next) 
       filename: req.file.originalname,
       contentType: req.file.mimetype,
     });
+    
+    // Pass the target framework choice if provided
+    if (req.body.target_framework) {
+      form.append('target_framework', req.body.target_framework);
+    }
 
     const response = await axios.post(`${FASTAPI_URL}/agent/compliance/run`, form, {
       headers: {
@@ -56,7 +61,10 @@ router.post('/run', authenticate, upload.single('file'), async (req, res, next) 
       timeout: 120000, // Agent might take a while
     });
 
-    audit.log(req.user.user_id, audit.AUDIT_ACTIONS.COMPLIANCE_AGENT_RUN, 'compliance_agent', null, { file_name: req.file.originalname }, req).catch(() => {});
+    audit.log(req.user.user_id, audit.AUDIT_ACTIONS.COMPLIANCE_AGENT_RUN, 'compliance_agent', null, { 
+      file_name: req.file.originalname,
+      target_framework: req.body.target_framework || 'all'
+    }, req).catch(() => {});
     res.json(response.data);
   } catch (err) {
     logger.error('Agent run failed:', err.message);

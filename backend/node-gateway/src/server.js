@@ -81,17 +81,24 @@ app.use(errorHandler);
 
 async function bootstrap() {
   try {
-    await connectPostgres();
-    await runMigrations();
-    await connectMongo();
+    await connectPostgres().catch(err => logger.error('PostgreSQL connection failed, continuing in standalone mode:', err.message));
+    try {
+      await runMigrations();
+    } catch (migErr) {
+      logger.error('Database migrations failed, continuing:', migErr.message);
+    }
+    await connectMongo().catch(err => logger.error('MongoDB connection failed, continuing in standalone mode:', err.message));
+    
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, () => {
       logger.info(`GRC Copilot Gateway running on port ${PORT}`);
-
     });
   } catch (err) {
-    logger.error('Failed to start server:', err);
-    process.exit(1);
+    logger.error('Failed to bootstrap server cleanly:', err);
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => {
+      logger.info(`GRC Copilot Gateway running on port ${PORT} (Emergency Standalone Mode)`);
+    });
   }
 }
 

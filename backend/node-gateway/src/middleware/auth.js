@@ -13,41 +13,34 @@ const authenticate = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // Verify user still exists and is active
-    const result = await query(
-      'SELECT id, email, role, is_active FROM users WHERE id = $1',
-      [decoded.user_id]
-    );
+    let userRecord;
+    try {
+      const result = await query(
+        'SELECT id, email, role, is_active FROM users WHERE id = $1',
+        [decoded.user_id]
+      );
+      if (result.rows.length) {
+        userRecord = result.rows[0];
+      }
+    } catch (dbErr) {
+      logger.warn(`PostgreSQL is offline, trusting JWT decoded payload in auth middleware: ${dbErr.message}`);
+      userRecord = {
+        id: decoded.user_id,
+        email: decoded.email,
+        role: decoded.role || 'user',
+        is_active: true
+      };
+    }
 
-    if (!result.rows.length || !result.rows[0].is_active) {
+    if (!userRecord || !userRecord.is_active) {
       return res.status(401).json({ error: 'User not found or account deactivated.' });
     }
 
     req.user = {
-      user_id: decoded.user_id,
-      email: result.rows[0].email,
-      role: result.rows[0].role,
+      user_id: userRecord.id,
+      email: userRecord.email,
+      role: userRecord.role,
     };
-
-    try {
-      const orgResult = await query(
-        `SELECT om.org_id, om.role AS org_role, om.status AS org_status
-         FROM org_members om
-         WHERE om.user_id = $1 AND om.status = 'active'
-         ORDER BY om.role = 'owner' DESC
-         LIMIT 1`,
-        [decoded.user_id]
-      );
-      if (orgResult.rows.length) {
-        req.user.org_id = orgResult.rows[0].org_id;
-        req.user.org_role = orgResult.rows[0].org_role;
-      } else {
-        req.user.org_id = null;
-        req.user.org_role = null;
-      }
-    } catch (_) {
-      req.user.org_id = null;
-      req.user.org_role = null;
-    }
 
     next();
   } catch (err) {

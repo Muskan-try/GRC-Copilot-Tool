@@ -10,17 +10,23 @@ pg_pool = None
 
 async def connect_mongo():
     global mongo_client, mongo_db
-    uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/grc_copilot")
-    mongo_client = AsyncIOMotorClient(uri)
-    mongo_db = mongo_client["grc_copilot"]
-    logger.info("MongoDB connected (FastAPI)")
+    try:
+        uri = os.getenv("MONGO_URI", "mongodb://localhost:27017/grc_copilot")
+        mongo_client = AsyncIOMotorClient(uri, serverSelectionTimeoutMS=2000)
+        mongo_db = mongo_client["grc_copilot"]
+        logger.info("MongoDB connection initialized (FastAPI)")
+    except Exception as e:
+        logger.warning(f"MongoDB connection failed: {e}. FastAPI will run in standalone mode.")
 
 
 async def connect_postgres():
     global pg_pool
-    dsn = os.getenv("PG_DSN", "postgresql://grc_user:grc_secure_password_2025@localhost:5432/grc_copilot")
-    pg_pool = await asyncpg.create_pool(dsn=dsn, min_size=2, max_size=10)
-    logger.info("PostgreSQL connected (FastAPI)")
+    try:
+        dsn = os.getenv("PG_DSN", "postgresql://grc_user:grc_secure_password_2025@localhost:5432/grc_copilot")
+        pg_pool = await asyncpg.create_pool(dsn=dsn, min_size=2, max_size=10, timeout=2.0)
+        logger.info("PostgreSQL pool initialized (FastAPI)")
+    except Exception as e:
+        logger.warning(f"PostgreSQL connection failed: {e}. FastAPI will run in standalone mode.")
 
 
 async def close_connections():

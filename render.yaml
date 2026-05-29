@@ -1,0 +1,79 @@
+services:
+  # 1. FastAPI Analysis Engine (AI Brain)
+  - type: web
+    name: grc-fastapi-engine
+    env: docker
+    dockerContext: backend/fastapi-engine
+    dockerfile: Dockerfile
+    plan: free
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: PG_DSN
+        fromDatabase:
+          name: grc-postgres
+          property: connectionString
+      - key: MONGO_URI
+        fromService:
+          type: mongodb
+          name: grc-mongodb
+          property: connectionString
+      - key: GROQ_API_KEY
+        sync: false
+      - key: LLM_PROVIDER
+        value: groq
+
+  # 2. Node Gateway (The Manager / Main API)
+  - type: web
+    name: grc-node-gateway
+    env: docker
+    dockerContext: backend/node-gateway
+    dockerfile: Dockerfile
+    plan: free
+    envVars:
+      - key: PORT
+        value: 3000
+      - key: NODE_ENV
+        value: production
+      - key: PG_HOST
+        fromDatabase:
+          name: grc-postgres
+          property: host
+      - key: PG_PORT
+        fromDatabase:
+          name: grc-postgres
+          property: port
+      - key: PG_DATABASE
+        fromDatabase:
+          name: grc-postgres
+          property: database
+      - key: PG_USER
+        fromDatabase:
+          name: grc-postgres
+          property: user
+      - key: PG_PASSWORD
+        fromDatabase:
+          name: grc-postgres
+          property: password
+      - key: MONGO_URI
+        fromService:
+          type: mongodb
+          name: grc-mongodb
+          property: connectionString
+      - key: FASTAPI_URL
+        fromService:
+          type: web
+          name: grc-fastapi-engine
+          property: host
+      - key: JWT_SECRET
+        generateValue: true
+      - key: GROQ_API_KEY
+        sync: false
+
+# Databases
+databases:
+  - name: grc-postgres
+    plan: free
+
+# MongoDB (Note: Render's native MongoDB is paid, this assumes a Free Tier setup or manual connection)
+# For the absolute "effortless" free experience, you might use a MongoDB Atlas URL instead.

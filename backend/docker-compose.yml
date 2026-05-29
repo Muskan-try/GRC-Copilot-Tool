@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: comp_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: grc_copilot
+      POSTGRES_USER: grc_user
+      POSTGRES_PASSWORD: grc_secure_password_2025
+    ports:
+      - "5432:5432"
+    volumes:
+      - comp_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grc_user -d grc_copilot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7.0
+    container_name: comp_mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - comp_mongo_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/grc_copilot --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  comp_postgres_data:
+  comp_mongo_data:
+
+networks:
+  default:
+    name: comp_network

@@ -1,0 +1,7 @@
+Information Security Policy
+1. Access Control
+1.1 Users must use MFA for all remote access.
+1.2 Password complexity should be at least 12 characters.
+2. Data Protection
+2.1 All sensitive data must be encrypted at rest using AES-256.
+2.2 Data backups should be performed daily.

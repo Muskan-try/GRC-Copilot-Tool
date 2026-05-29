@@ -1,0 +1,117 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: grc_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: grc_copilot
+      POSTGRES_USER: grc_user
+      POSTGRES_PASSWORD: grc_secure_password_2025
+    ports:
+      - "5432:5432"
+    volumes:
+      - grc_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U grc_user -d grc_copilot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7.0
+    container_name: grc_mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - grc_mongo_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/grc_copilot --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  node-gateway:
+    build: ./backend/node-gateway
+    container_name: grc_node_gateway
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - PG_HOST=postgres
+      - PG_PORT=5432
+      - PG_DATABASE=grc_copilot
+      - PG_USER=grc_user
+      - PG_PASSWORD=grc_secure_password_2025
+      - MONGO_URI=mongodb://mongodb:27017/grc_copilot
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      - CORS_ORIGIN=http://localhost:5173,http://192.168.1.12:5174
+      - FRONTEND_URL=http://localhost:5173
+      - RATE_LIMIT_WINDOW_MS=900000
+      - RATE_LIMIT_MAX=10000
+      - MAX_FILE_SIZE_MB=10
+      - GOOGLE_CLIENT_ID=101056858184-j9uk1pa36cs9mf35a6t06vli4t6ph6e2.apps.googleusercontent.com
+      - UPLOAD_DIR=./uploads
+      - FASTAPI_URL=http://fastapi-engine:8000
+      - GROQ_API_KEY=${GROQ_API_KEY:-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}
+      - GOOGLE_CLIENT_SECRET=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
+      - GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
+      - MICROSOFT_CLIENT_ID=${MICROSOFT_CLIENT_ID}
+      - MICROSOFT_CLIENT_SECRET=${MICROSOFT_CLIENT_SECRET}
+      - MICROSOFT_CALLBACK_URL=http://localhost:3000/api/auth/microsoft/callback
+      - MICROSOFT_TENANT=${MICROSOFT_TENANT:-common}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./backend/node-gateway/src:/app/src
+      - ./backend/node-gateway/uploads:/app/uploads
+
+  fastapi-engine:
+    build: ./backend/fastapi-engine
+    container_name: grc_fastapi_engine
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PG_DSN=postgresql://grc_user:grc_secure_password_2025@postgres:5432/grc_copilot
+      - MONGO_URI=mongodb://mongodb:27017/grc_copilot
+      - GROQ_API_KEY=${GROQ_API_KEY:-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}
+      - LLM_PROVIDER=groq
+    volumes:
+      - ./backend/fastapi-engine/app:/app/app
+      - ./backend/fastapi-engine/main.py:/app/main.py
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: grc_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_BASE=/api
+      - VITE_API_PROXY_TARGET=http://node-gateway:3000
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/vite.config.js:/app/vite.config.js
+      - ./frontend/index.html:/app/index.html
+    depends_on:
+      - node-gateway
+
+volumes:
+  grc_postgres_data:
+  grc_mongo_data:
+
+networks:
+  default:
+    driver: bridge

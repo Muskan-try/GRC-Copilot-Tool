@@ -142,7 +142,12 @@ router.get('/generate', authenticate, async (req, res, next) => {
       `SELECT a.*, o.industry, o.employee_range, o.frameworks, o.name AS org_name
        FROM assessments a
        JOIN organizations o ON o.id = a.org_id
-       WHERE a.id = $1 AND a.user_id = $2`,
+       WHERE a.id = $1 
+         AND (
+           a.user_id = $2
+           OR (SELECT role FROM users WHERE id = $2) = 'admin'
+           OR a.org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active')
+         )`,
       [assessment_id, req.user.user_id]
     );
 

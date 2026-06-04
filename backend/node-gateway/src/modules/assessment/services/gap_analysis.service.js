@@ -18,7 +18,7 @@ class GapAnalysisService {
 
     // 1. Verify ownership
     const assessCheck = await query(
-      'SELECT id, assessment_type FROM assessments WHERE id = $1 AND user_id = $2',
+      'SELECT id, assessment_type FROM assessments WHERE id = $1 AND (user_id = $2 OR org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = \'active\'))',
       [assessmentId, userId]
     );
     if (assessCheck.rows.length === 0) {
@@ -52,14 +52,39 @@ class GapAnalysisService {
       }));
     }
 
-    // 3. Group by control/domain and calculate scores
+    // 3. Get all questions for the assessment's frameworks to find missing ones
+    const questionsResult = await query(
+      `SELECT q.question_id, c.control_id as control_ref, c.domain, q.weight
+       FROM questions q
+       JOIN assessment_frameworks af ON q.framework_id = af.framework_id
+       LEFT JOIN controls c ON q.control_id = c.id
+       WHERE af.assessment_id = $1 AND q.is_active = true`,
+      [assessmentId]
+    );
+
     const controlMap = {};
+    
+    // Initialize controlMap with all questions, assuming maturity=0
+    questionsResult.rows.forEach(q => {
+      const key = q.control_ref || q.question_id;
+      if (!controlMap[key]) {
+        controlMap[key] = {
+          control_ref: key,
+          domain: q.domain || 'General',
+          maturity_scores: [],
+          weights: [],
+          critical: false,
+        };
+      }
+    });
+
+    // Populate with actual responses
     mongoResponses.forEach(r => {
       if (r.is_na) return;
       const key = r.control || r.question_id;
       if (!controlMap[key]) {
         controlMap[key] = {
-          control_ref: r.control || r.question_id,
+          control_ref: key,
           domain: r.domain || 'General',
           maturity_scores: [],
           weights: [],
@@ -68,6 +93,15 @@ class GapAnalysisService {
       }
       controlMap[key].maturity_scores.push(r.maturity_score || 0);
       controlMap[key].weights.push(r.weight || 1.0);
+      controlMap[key].critical = controlMap[key].critical || r.critical;
+    });
+
+    // For any control that had no responses (i.e. maturity_scores is empty), treat as missing (0 maturity)
+    Object.values(controlMap).forEach(ctrl => {
+      if (ctrl.maturity_scores.length === 0) {
+        ctrl.maturity_scores.push(0);
+        ctrl.weights.push(1.0);
+      }
     });
 
     const analysis = {

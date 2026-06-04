@@ -16,7 +16,7 @@ router.get('/:reportId', authenticate, async (req, res, next) => {
 
     // Verify ownership via assessment
     const assessResult = await query(
-      'SELECT id FROM assessments WHERE report_id = $1 AND user_id = $2',
+      'SELECT id FROM assessments WHERE report_id = $1 AND (user_id = $2 OR org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = \'active\'))',
       [reportId, req.user.user_id]
     );
     if (!assessResult.rows.length) {
@@ -61,7 +61,7 @@ router.get('/assessment/:assessmentId', authenticate, async (req, res, next) => 
 
     // Verify ownership
     const assessResult = await query(
-      'SELECT id, framework, status FROM assessments WHERE id = $1 AND user_id = $2',
+      'SELECT id, framework, status FROM assessments WHERE id = $1 AND (user_id = $2 OR org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = \'active\'))',
       [assessmentId, req.user.user_id]
     );
     if (!assessResult.rows.length) {
@@ -115,7 +115,7 @@ router.get('/assessment/:assessmentId/cost', authenticate, async (req, res, next
       `SELECT a.id, o.region 
        FROM assessments a
        JOIN organizations o ON a.org_id = o.id
-       WHERE a.id = $1 AND a.user_id = $2`,
+       WHERE a.id = $1 AND (a.user_id = $2 OR a.org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active'))`,
       [assessmentId, req.user.user_id]
     );
 

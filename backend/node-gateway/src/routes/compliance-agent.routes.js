@@ -67,7 +67,11 @@ router.post('/run', authenticate, upload.single('file'), async (req, res, next) 
     }, req).catch(() => {});
     res.json(response.data);
   } catch (err) {
-    logger.error('Agent run failed:', err.message);
+    if (err.response) {
+      logger.error('Agent run failed with response data:', JSON.stringify(err.response.data));
+    } else {
+      logger.error('Agent run failed:', err.message);
+    }
     next(err);
   }
 });

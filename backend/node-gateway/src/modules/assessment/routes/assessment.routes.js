@@ -304,4 +304,20 @@ router.post(
   }
 );
 
+/**
+ * DELETE /api/v2/assessment/:id
+ * Delete an assessment.
+ */
+router.delete('/:id', authenticate, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const result = await assessmentService.deleteAssessment(id, req.user.user_id);
+    if (!result) return res.status(404).json({ error: 'Assessment not found or unauthorized' });
+    audit.log(req.user.user_id, audit.AUDIT_ACTIONS.ASSESSMENT_DELETE || 'assessment.delete', 'assessment', id, {}, req).catch(() => {});
+    res.json({ message: 'Assessment successfully deleted', assessment_id: id });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

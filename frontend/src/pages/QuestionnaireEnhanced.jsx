@@ -1,7 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getQuestionsV2, submitResponseV2, uploadEvidenceV2, completeAssessmentV2, autoAnswerPolicy } from "../api";
+import { getQuestionsV2, submitResponseV2, uploadEvidenceV2, completeAssessmentV2, autoAnswerPolicy, getCurrentUser } from "../api";
 import { useToast } from "../components/Toast";
+import { Sun, Moon } from "lucide-react";
+import { useTheme } from "../contexts/ThemeContext";
+
 
 const STORAGE_KEY = "enhanced_questionnaire_progress";
 
@@ -25,6 +28,11 @@ export default function QuestionnaireEnhanced() {
   const navigate = useNavigate();
   const { id } = useParams();
   const toast = useToast();
+  const { theme, toggleTheme } = useTheme();
+  const user = getCurrentUser();
+  const username = user?.email ? user.email.split("@")[0] : "user";
+  const roleLabel = (user?.role || "TEAM MEMBER").replace(/_/g, " ").toUpperCase();
+  const isTeamMember = user?.role === 'team_member';
   const assessmentId = id && id !== "new" ? id : sessionStorage.getItem("assessmentId");
 
   const [loading, setLoading] = useState(true);
@@ -36,6 +44,16 @@ export default function QuestionnaireEnhanced() {
   const [view, setView] = useState("questionnaire");
   const [saving, setSaving] = useState(false);
   const [aiInsights, setAiInsights] = useState({});
+  const [showExitModal, setShowExitModal] = useState(false);
+  const autoAdvanceTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceTimeoutRef.current) {
+        clearTimeout(autoAdvanceTimeoutRef.current);
+      }
+    };
+  }, [currentIndex]);
 
   useEffect(() => {
     if (!assessmentId) {
@@ -93,6 +111,7 @@ export default function QuestionnaireEnhanced() {
   }, []);
 
   const saveProgress = useCallback((currentAnswers, index) => {
+    if (isTeamMember) return;
     try {
       sessionStorage.setItem(
         STORAGE_KEY,
@@ -101,7 +120,7 @@ export default function QuestionnaireEnhanced() {
     } catch (err) {
       console.error("Failed to save progress:", err);
     }
-  }, []);
+  }, [isTeamMember]);
 
   useEffect(() => {
     if (Object.keys(answers).length > 0 || currentIndex > 0) {
@@ -117,48 +136,95 @@ export default function QuestionnaireEnhanced() {
   };
 
   const handleComplianceSelect = async (val) => {
+    if (isTeamMember) return;
     if (!currentQuestion) return;
     const qid = currentQuestion.question_id;
     const prev = answers[qid] || {};
     const isNa = val === 3;
-    const maturity = isNa ? 0 : prev.maturity;
-    const newAnswers = { ...answers, [qid]: { ...prev, compliance: val, maturity, is_na: isNa } };
-    setAnswers(newAnswers);
-    // If N/A is selected, maturity auto-sets to 0, so both are set — save and advance
+    let maturity = prev.maturity;
     if (isNa) {
-      await submitAnswer(qid, newAnswers[qid], currentQuestion);
-      setTimeout(() => {
-        if (currentIndex < questions.length - 1) {
-          setCurrentIndex(currentIndex + 1);
-        } else {
-          setView("review");
-        }
-      }, 350);
+      maturity = 0;
     }
-    // If compliance is selected but maturity not yet picked, wait for maturity
+    
+    const newAnswers = { 
+      ...answers, 
+      [qid]: { 
+        ...prev, 
+        compliance: val, 
+        maturity, 
+        is_na: isNa,
+        evidenceChoice: prev.evidenceChoice || "no" 
+      } 
+    };
+    setAnswers(newAnswers);
+    
+    if (maturity !== undefined) {
+      const updated = { ...prev, compliance: val, maturity, is_na: isNa, evidenceChoice: prev.evidenceChoice || "no" };
+      await submitAnswer(qid, updated, currentQuestion);
+      if (updated.evidenceChoice === "no") {
+        autoAdvance(3000);
+      }
+    }
   };
 
   const handleMaturitySelect = async (val) => {
+    if (isTeamMember) return;
     if (!currentQuestion) return;
     const qid = currentQuestion.question_id;
     const prev = answers[qid] || {};
-    const updated = { ...prev, maturity: val };
+    const updated = { ...prev, maturity: val, evidenceChoice: prev.evidenceChoice || "no" };
     const newAnswers = { ...answers, [qid]: updated };
     setAnswers(newAnswers);
-    // Only save and advance if compliance is also selected
+    
     if (updated.compliance !== undefined && updated.compliance !== null) {
       await submitAnswer(qid, updated, currentQuestion);
-      setTimeout(() => {
-        if (currentIndex < questions.length - 1) {
-          setCurrentIndex(currentIndex + 1);
+      if (updated.evidenceChoice === "no") {
+        autoAdvance(3000);
+      }
+    }
+  };
+
+  const autoAdvance = (delay = 3000) => {
+    if (autoAdvanceTimeoutRef.current) {
+      clearTimeout(autoAdvanceTimeoutRef.current);
+    }
+    autoAdvanceTimeoutRef.current = setTimeout(() => {
+      setCurrentIndex((prevIdx) => {
+        if (prevIdx < questions.length - 1) {
+          return prevIdx + 1;
         } else {
           setView("review");
+          return prevIdx;
         }
-      }, 350);
+      });
+    }, delay);
+  };
+
+  const handleEvidenceChoice = async (choice) => {
+    if (isTeamMember) return;
+    if (!currentQuestion) return;
+    const qid = currentQuestion.question_id;
+    const prev = answers[qid] || {};
+    const updated = { ...prev, evidenceChoice: choice };
+    const newAnswers = { ...answers, [qid]: updated };
+    setAnswers(newAnswers);
+
+    if (updated.compliance !== undefined && updated.maturity !== undefined) {
+      await submitAnswer(qid, updated, currentQuestion);
+    }
+
+    if (choice === "no") {
+      autoAdvance(500);
+    } else {
+      if (autoAdvanceTimeoutRef.current) {
+        clearTimeout(autoAdvanceTimeoutRef.current);
+        autoAdvanceTimeoutRef.current = null;
+      }
     }
   };
 
   const submitAnswer = async (qid, ans, question) => {
+    if (isTeamMember) return;
     if (!ans || ans.compliance === undefined || ans.maturity === undefined) return;
     try {
       const opt = COMPLIANCE_OPTIONS.find((o) => o.val === ans.compliance);
@@ -200,6 +266,7 @@ export default function QuestionnaireEnhanced() {
   };
 
   const handleFileUpload = async (e) => {
+    if (isTeamMember) return;
     const files = e.target.files;
     if (!files.length || !currentQuestion) return;
     setUploading(true);
@@ -242,6 +309,7 @@ export default function QuestionnaireEnhanced() {
   };
 
   const finish = async () => {
+    if (isTeamMember) return;
     setSaving(true);
     try {
       // Mark assessment as complete on the backend so dashboard reflects it
@@ -303,15 +371,139 @@ export default function QuestionnaireEnhanced() {
   const progress = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
   const summary = getScoreSummary();
 
+  const sessionFormData = JSON.parse(sessionStorage.getItem("assessmentFormData") || "{}");
+
   if (view === "review") {
     return (
-      <div className="page enhanced-review">
-        <div className="review-container">
-          <div className="review-header">
-            <h1>Assessment Review</h1>
-            <p>Review your responses before generating the compliance report</p>
+      <div className="page enhanced-review" style={{ justifyContent: "flex-start", paddingTop: 0, paddingLeft: 0, paddingRight: 0 }}>
+        {/* Unified Header */}
+        <div 
+          className="no-print"
+          style={{
+            width: "100%",
+            background: "var(--surface)",
+            borderBottom: "1px solid var(--border-color)",
+            padding: "16px 40px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            boxSizing: "border-box",
+            marginBottom: 30,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <button
+              className="btn btn-back"
+              style={{ marginBottom: 0, padding: "6px 12px", fontSize: "0.85rem", height: "auto" }}
+              onClick={() => setShowExitModal(true)}
+            >
+              Exit
+            </button>
+            <div style={{ fontSize: "1.6rem", fontWeight: 700 }}>
+              <span style={{ color: "var(--text-main)", fontWeight: 900 }}>GRC tool</span>{" "}
+              <span style={{ color: "var(--primary)" }}>Review</span>
+            </div>
           </div>
 
+          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Sun size={16} color="#f59e0b" style={{ opacity: theme === "light" ? 1 : 0.4 }} />
+              <button
+                onClick={toggleTheme}
+                style={{
+                  width: 38,
+                  height: 20,
+                  borderRadius: 10,
+                  backgroundColor: theme === "dark" ? "var(--primary)" : "#cbd5e1",
+                  border: "none",
+                  position: "relative",
+                  cursor: "pointer",
+                  padding: 0,
+                  transition: "background-color 0.2s",
+                }}
+              >
+                <div
+                  style={{
+                    width: 14,
+                    height: 14,
+                    borderRadius: "50%",
+                    backgroundColor: "#fff",
+                    position: "absolute",
+                    top: 3,
+                    left: theme === "dark" ? 21 : 3,
+                    transition: "left 0.2s",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
+                  }}
+                />
+              </button>
+              <Moon size={16} color="#a855f7" style={{ opacity: theme === "dark" ? 1 : 0.4 }} />
+            </div>
+
+            <div style={{ width: 1, height: 20, backgroundColor: "var(--border-color)" }} />
+
+            <button
+              className="btn btn-outline"
+              style={{
+                height: 32,
+                padding: "0 12px",
+                fontSize: "0.8rem",
+                margin: 0,
+                background: "var(--surface)",
+                color: "var(--text-main)",
+                border: "1px solid var(--border-color)",
+                borderRadius: 6,
+                width: "auto"
+              }}
+              onClick={() => window.location.reload()}
+            >
+              Refresh
+            </button>
+
+            <div style={{ width: 1, height: 20, backgroundColor: "var(--border-color)" }} />
+
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+              <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                Welcome, <strong style={{ color: "var(--text-main)" }}>{username}</strong>
+              </span>
+              <span style={{ fontSize: "0.65rem", fontWeight: 800, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                {roleLabel}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="review-container">
+          {/* Framework details subbar */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, padding: "0 10px" }}>
+            <div>
+              {isTeamMember && (
+                <span
+                  style={{
+                    fontSize: "0.8rem",
+                    fontWeight: 800,
+                    padding: "4px 10px",
+                    borderRadius: 20,
+                    textTransform: "uppercase",
+                    background: `rgba(239, 68, 68, 0.15)`,
+                    color: "var(--danger)",
+                    border: `1px solid rgba(239, 68, 68, 0.3)`,
+                  }}
+                >
+                  Read-Only Review
+                </span>
+              )}
+              <span style={{ color: "var(--text-muted)", marginLeft: isTeamMember ? 16 : 0, fontSize: "0.95rem" }}>
+                <strong>{sessionFormData.orgName || "Organization"}</strong> | {sessionStorage.getItem("compliance") || "Framework"}
+              </span>
+            </div>
+            <button
+              className="btn btn-primary"
+              style={{ width: "auto", padding: "0 24px", margin: 0, height: 36 }}
+              onClick={() => navigate(`/dashboard-v2/${assessmentId}`)}
+            >
+              Dashboard
+            </button>
+          </div>
           <div className="review-stats">
             <div className="stat-card">
               <div className="stat-value">{summary.answered}</div>
@@ -383,11 +575,67 @@ export default function QuestionnaireEnhanced() {
             <button className="btn btn-outline" onClick={() => setView("questionnaire")}>
               ← Back to Questions
             </button>
-            <button className="btn btn-primary" onClick={finish} disabled={saving}>
-              {saving ? "Generating Report..." : "Generate Compliance Report"}
-            </button>
+            {!isTeamMember && (
+              <button className="btn btn-primary" onClick={finish} disabled={saving}>
+                {saving ? "Generating Report..." : "Generate Compliance Report"}
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Exit Confirmation Modal */}
+        {showExitModal && (
+          <div style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            backgroundColor: "rgba(15, 23, 42, 0.6)",
+            backdropFilter: "blur(8px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}>
+            <div style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border-color)",
+              borderRadius: "16px",
+              padding: "32px",
+              maxWidth: "480px",
+              width: "90%",
+              boxShadow: "var(--shadow-lg)",
+              textAlign: "center",
+            }}>
+              <h3 style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--text-main)", marginBottom: "12px" }}>
+                Are you sure you want to exit?
+              </h3>
+              <p style={{ color: "var(--text-muted)", fontSize: "0.95rem", marginBottom: "28px", lineHeight: "1.5" }}>
+                Your current progress is saved, but you will need to return to complete the assessment and generate the report.
+              </p>
+              <div style={{ display: "flex", gap: "16px", justifyContent: "center" }}>
+                <button
+                  className="btn btn-outline"
+                  onClick={() => setShowExitModal(false)}
+                  style={{ flex: 1, height: "44px", padding: "0" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setShowExitModal(false);
+                    navigate("/start");
+                  }}
+                  style={{ flex: 1, height: "44px", padding: "0" }}
+                >
+                  Yes, Exit
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -395,250 +643,458 @@ export default function QuestionnaireEnhanced() {
   const currentAnswer = answers[currentQuestion?.question_id] || {};
 
   return (
-    <div className="page enhanced-questionnaire">
-      <div className="questionnaire-sidebar">
-        <div className="sidebar-header">
-          <button className="btn btn-back" onClick={() => navigate("/start")}>
-            ← Exit
+    <div className="page enhanced-questionnaire" style={{ justifyContent: "flex-start", paddingTop: 0, paddingLeft: 0, paddingRight: 0 }}>
+      {/* Unified Header */}
+      <div 
+        className="no-print"
+        style={{
+          width: "100%",
+          background: "var(--surface)",
+          borderBottom: "1px solid var(--border-color)",
+          padding: "16px 40px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          boxSizing: "border-box",
+          marginBottom: 30,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <button
+            className="btn btn-back"
+            style={{ marginBottom: 0, padding: "6px 12px", fontSize: "0.85rem", height: "auto" }}
+            onClick={() => setShowExitModal(true)}
+          >
+            Exit
           </button>
-        </div>
-
-        <div className="progress-section">
-          <div className="progress-label">
-            <span>Progress</span>
-            <span>{progress}%</span>
-          </div>
-          <div className="progress-bar-large">
-            <div className="progress-fill" style={{ width: `${progress}%` }}></div>
-          </div>
-          <div className="progress-detail">
-            Question {currentIndex + 1} of {questions.length}
+          <div style={{ fontSize: "1.6rem", fontWeight: 700 }}>
+            <span style={{ color: "var(--text-main)", fontWeight: 900 }}>GRC tool</span>{" "}
+            <span style={{ color: "var(--primary)" }}>Questionnaire</span>
           </div>
         </div>
 
-        <div className="navigation-dots">
-          {questions.map((q, idx) => {
-            const ans = answers[q.question_id];
-            const isAnswered = ans && ans.compliance !== undefined && ans.maturity !== undefined;
-            const isCurrent = idx === currentIndex;
-            return (
-              <button
-                key={q.question_id}
-                className={`nav-dot ${isCurrent ? "current" : ""} ${isAnswered ? "answered" : ""}`}
-                onClick={() => goToQuestion(idx)}
-                title={q.control}
-              >
-                {idx + 1}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="domain-list">
-          <h4>Domains</h4>
-          {Array.from(new Set(questions.map((q) => q.domainName))).map((domainName) => {
-            const domainQuestions = questions.filter((q) => q.domainName === domainName);
-            const answeredCount = domainQuestions.filter((q) => {
-              const ans = answers[q.question_id];
-              return ans && ans.compliance !== undefined && ans.maturity !== undefined;
-            }).length;
-            const isActive = currentQuestion?.domainName === domainName;
-            return (
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Sun size={16} color="#f59e0b" style={{ opacity: theme === "light" ? 1 : 0.4 }} />
+            <button
+              onClick={toggleTheme}
+              style={{
+                width: 38,
+                height: 20,
+                borderRadius: 10,
+                backgroundColor: theme === "dark" ? "var(--primary)" : "#cbd5e1",
+                border: "none",
+                position: "relative",
+                cursor: "pointer",
+                padding: 0,
+                transition: "background-color 0.2s",
+              }}
+            >
               <div
-                key={domainName}
-                className={`domain-item ${isActive ? "active" : ""}`}
-                onClick={() => {
-                  const idx = questions.findIndex((q) => q.domainName === domainName);
-                  if (idx >= 0) goToQuestion(idx);
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: "50%",
+                  backgroundColor: "#fff",
+                  position: "absolute",
+                  top: 3,
+                  left: theme === "dark" ? 21 : 3,
+                  transition: "left 0.2s",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
                 }}
-              >
-                <span className="domain-label">{domainName}</span>
-                <span className="domain-count">
-                  {answeredCount}/{domainQuestions.length}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-
-        <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border-color)", marginTop: "auto" }}>
-          <div id="auto-answer-status" style={{ fontSize: "0.6rem", color: "var(--text-light)", marginBottom: 6, textAlign: "center", minHeight: 16 }}>
-            Upload a policy to auto-fill matching controls
+              />
+            </button>
+            <Moon size={16} color="#a855f7" style={{ opacity: theme === "dark" ? 1 : 0.4 }} />
           </div>
+
+          <div style={{ width: 1, height: 20, backgroundColor: "var(--border-color)" }} />
+
           <button
             className="btn btn-outline"
-            id="auto-answer-btn"
-            onClick={async () => {
-              const btn = document.getElementById('auto-answer-btn');
-              const status = document.getElementById('auto-answer-status');
-              const input = document.createElement('input');
-              input.type = 'file';
-              input.accept = '.pdf,.docx,.txt';
-              input.onchange = async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                btn.disabled = true;
-                btn.textContent = '⏳ Scanning policy...';
-                status.textContent = 'Parsing document → extracting controls → matching questions...';
-                try {
-                  const result = await autoAnswerPolicy(file, assessmentId);
-                  const msg = result.matched_count > 0
-                    ? `✅ Auto-answered ${result.matched_count}/${result.total_questions} questions`
-                    : `⚠️ No matches found (${result.total_questions || 0} questions in assessment)`;
-                  status.textContent = msg + (result.website_scanned ? ' · 🌐 Website scanned' : '') + (result.organization_detected ? ` · 🏢 ${result.organization_detected}` : '');
-                  toast.addToast(msg, result.matched_count > 0 ? "success" : "info");
-                  if (result.matched_count > 0) await loadQuestions();
-                } catch (err) {
-                  status.textContent = '❌ Scan failed: ' + (err.message || 'Error');
-                  toast.addToast("Auto-answer failed", "error");
-                } finally {
-                  btn.disabled = false;
-                  btn.textContent = '📄 Auto-Answer from Policy';
-                }
-              };
-              input.click();
+            style={{
+              height: 32,
+              padding: "0 12px",
+              fontSize: "0.8rem",
+              margin: 0,
+              background: "var(--surface)",
+              color: "var(--text-main)",
+              border: "1px solid var(--border-color)",
+              borderRadius: 6,
+              width: "auto"
             }}
-            style={{ width: "100%", fontSize: "0.8rem", padding: "10px 12px", marginBottom: 0 }}
+            onClick={() => window.location.reload()}
           >
-            📄 Auto-Answer from Policy
+            Refresh
           </button>
+
+          <div style={{ width: 1, height: 20, backgroundColor: "var(--border-color)" }} />
+
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+            <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
+              Welcome, <strong style={{ color: "var(--text-main)" }}>{username}</strong>
+            </span>
+            <span style={{ fontSize: "0.65rem", fontWeight: 800, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              {roleLabel}
+            </span>
+          </div>
         </div>
       </div>
 
-      <div className="questionnaire-main">
-        <div className="question-card">
-          <div className="question-header">
-            <div className="domain-badge">{currentQuestion?.domainName}</div>
-            <div className="control-id">{currentQuestion?.control}</div>
-            {currentQuestion?.critical && <div className="critical-badge">CRITICAL</div>}
+      {/* Main Body */}
+      <div style={{ padding: "0 40px", width: "100%", boxSizing: "border-box" }}>
+        {/* Secondary Actions Bar */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div>
+            <span
+              style={{
+                fontSize: "0.8rem",
+                fontWeight: 800,
+                padding: "4px 10px",
+                borderRadius: 20,
+                textTransform: "uppercase",
+                background: `rgba(14, 165, 233, 0.15)`,
+                color: "var(--primary)",
+                border: `1px solid rgba(14, 165, 233, 0.3)`,
+              }}
+            >
+              Assessment Active
+            </span>
+            <span style={{ color: "var(--text-muted)", marginLeft: 16, fontSize: "0.95rem" }}>
+              <strong>{sessionFormData.orgName || "Organization"}</strong> | {sessionStorage.getItem("compliance") || "Framework"}
+            </span>
+          </div>
+          <button
+            className="btn btn-primary"
+            style={{ width: "auto", padding: "0 24px", margin: 0, height: 36 }}
+            onClick={() => navigate(`/dashboard-v2/${assessmentId}`)}
+          >
+            Dashboard
+          </button>
+        </div>
+
+      <div className="questionnaire-body">
+        <div className="questionnaire-sidebar">
+          <div className="progress-section">
+            <div className="progress-label">
+              <span>Progress</span>
+              <span>{progress}%</span>
+            </div>
+            <div className="progress-bar-large">
+              <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+            </div>
+            <div className="progress-detail">
+              Question {currentIndex + 1} of {questions.length}
+            </div>
           </div>
 
-          <h2 className="question-text">{currentQuestion?.text}</h2>
+          <div className="questions-nav-container">
+            <h4>Questions Map</h4>
+            <div className="navigation-dots">
+              {questions.map((q, idx) => {
+                const ans = answers[q.question_id];
+                const isAnswered = ans && ans.compliance !== undefined && ans.maturity !== undefined;
+                const isCurrent = idx === currentIndex;
+                return (
+                  <button
+                    key={q.question_id}
+                    className={`nav-dot ${isCurrent ? "current" : ""} ${isAnswered ? "answered" : ""}`}
+                    onClick={() => goToQuestion(idx)}
+                    title={q.control}
+                  >
+                    {idx + 1}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-          {currentQuestion?.hint && (
-            <div className="question-hint">
-              <span className="hint-icon">💡</span>
-              <span>{currentQuestion?.hint}</span>
+          <div className="domain-list">
+            <h4>Domains</h4>
+            {Array.from(new Set(questions.map((q) => q.domainName))).map((domainName) => {
+              const domainQuestions = questions.filter((q) => q.domainName === domainName);
+              const answeredCount = domainQuestions.filter((q) => {
+                const ans = answers[q.question_id];
+                return ans && ans.compliance !== undefined && ans.maturity !== undefined;
+              }).length;
+              const isActive = currentQuestion?.domainName === domainName;
+              return (
+                <div
+                  key={domainName}
+                  className={`domain-item ${isActive ? "active" : ""}`}
+                  onClick={() => {
+                    const idx = questions.findIndex((q) => q.domainName === domainName);
+                    if (idx >= 0) goToQuestion(idx);
+                  }}
+                >
+                  <span className="domain-label">{domainName}</span>
+                  <span className="domain-count">
+                    {answeredCount}/{domainQuestions.length}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {isTeamMember && (
+            <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border-color)", marginTop: "auto" }}>
+              <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 600, textAlign: 'center' }}>
+                Read-Only Access: Review Mode
+              </div>
             </div>
           )}
+        </div>
 
-          {aiInsights[currentQuestion?.question_id] && (
-            <div className="ai-insight" style={{ background: "var(--warning-bg)", borderLeft: "4px solid #f59e0b", borderRadius: 8, padding: 14, marginBottom: 20 }}>
-              <span className="insight-icon" style={{ fontSize: "1.2rem" }}>🤖</span>
-              <span style={{ color: "var(--warning)", fontWeight: 600, fontSize: "0.9rem", lineHeight: 1.4 }}>{aiInsights[currentQuestion?.question_id]}</span>
+        <div className="questionnaire-main">
+          <div className="question-card">
+            <div className="question-header">
+              <div className="domain-badge">{currentQuestion?.domainName}</div>
+              <div className="control-id">{currentQuestion?.control}</div>
+              {currentQuestion?.critical && <div className="critical-badge">CRITICAL</div>}
             </div>
-          )}
 
-          <div className="answer-section">
-            {/* Compliance Status */}
-            <div className="compliance-section">
-              <h3>Compliance Status</h3>
-              <div className="option-grid compliance-options">
-                {COMPLIANCE_OPTIONS.map((opt) => {
-                  const isSelected = currentAnswer.compliance === opt.val;
-                  return (
-                    <button
-                      key={opt.label}
-                      className={`option-btn ${isSelected ? "selected" : ""}`}
-                      onClick={() => handleComplianceSelect(opt.val)}
-                      style={{
-                        borderColor: isSelected ? opt.color : undefined,
-                        backgroundColor: isSelected ? `${opt.color}15` : undefined,
-                      }}
-                    >
-                      <span
-                        className="option-label"
+            <h2 className="question-text">{currentQuestion?.text}</h2>
+
+            {currentQuestion?.hint && (
+              <div className="question-hint">
+                <span className="hint-icon">💡</span>
+                <span>{currentQuestion?.hint}</span>
+              </div>
+            )}
+
+            {aiInsights[currentQuestion?.question_id] && (
+              <div className="ai-insight" style={{ background: "var(--warning-bg)", borderLeft: "4px solid #f59e0b", borderRadius: 8, padding: 14, marginBottom: 20 }}>
+                <span className="insight-icon" style={{ fontSize: "1.2rem" }}>🤖</span>
+                <span style={{ color: "var(--warning)", fontWeight: 600, fontSize: "0.9rem", lineHeight: 1.4 }}>{aiInsights[currentQuestion?.question_id]}</span>
+              </div>
+            )}
+
+            <div className="answer-section">
+              {/* Compliance Status */}
+              <div className="compliance-section" style={{ opacity: isTeamMember ? 0.7 : 1 }}>
+                <h3>Compliance Status {isTeamMember && "(Read-Only)"}</h3>
+                <div className="option-grid compliance-options">
+                  {COMPLIANCE_OPTIONS.map((opt) => {
+                    const isSelected = currentAnswer.compliance === opt.val;
+                    return (
+                      <button
+                        key={opt.label}
+                        className={`option-btn ${isSelected ? "selected" : ""}`}
+                        onClick={() => handleComplianceSelect(opt.val)}
+                        disabled={isTeamMember}
                         style={{
-                          color: isSelected ? opt.color : undefined,
-                          fontWeight: isSelected ? 800 : 600,
+                          borderColor: isSelected ? opt.color : undefined,
+                          backgroundColor: isSelected ? `${opt.color}15` : undefined,
+                          cursor: isTeamMember ? 'default' : 'pointer'
                         }}
                       >
-                        {opt.label}
-                      </span>
-                      <span className="option-desc" style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                        {opt.desc}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Maturity Scale */}
-            <div className="maturity-section">
-              <div className="maturity-header">
-                <h3>Implementation Maturity</h3>
-                <span className="current-level">
-                  Level {currentAnswer.maturity ?? 0}: {MATURITY_LEVELS[currentAnswer.maturity ?? 0]?.label}
-                </span>
+                        <span
+                          className="option-label"
+                          style={{
+                            color: isSelected ? opt.color : undefined,
+                            fontWeight: isSelected ? 800 : 600,
+                          }}
+                        >
+                          {opt.label}
+                        </span>
+                        <span className="option-desc" style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+                          {opt.desc}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
-              <div className="maturity-scale">
-                {MATURITY_LEVELS.map((level) => {
-                  const isSelected = currentAnswer.maturity === level.val;
-                  return (
-                    <button
-                      key={level.val}
-                      className={`maturity-btn ${isSelected ? "selected" : ""}`}
-                      onClick={() => handleMaturitySelect(level.val)}
-                      style={{
-                        backgroundColor: isSelected ? level.color : undefined,
-                        borderColor: isSelected ? level.color : undefined,
-                        color: isSelected ? "var(--text-on-dark)" : undefined,
-                      }}
-                    >
-                      <span className="maturity-val">{level.val}</span>
-                      <span className="maturity-label">{level.label}</span>
-                    </button>
-                  );
-                })}
+              {/* Maturity Scale */}
+              <div className="maturity-section" style={{ opacity: isTeamMember ? 0.7 : 1 }}>
+                <div className="maturity-header">
+                  <h3>Implementation Maturity {isTeamMember && "(Read-Only)"}</h3>
+                  <span className="current-level">
+                    Level {currentAnswer.maturity ?? 0}: {MATURITY_LEVELS[currentAnswer.maturity ?? 0]?.label}
+                  </span>
+                </div>
+
+                <div className="maturity-scale">
+                  {MATURITY_LEVELS.map((level) => {
+                    const isSelected = currentAnswer.maturity === level.val;
+                    return (
+                      <button
+                        key={level.val}
+                        className={`maturity-btn ${isSelected ? "selected" : ""}`}
+                        onClick={() => handleMaturitySelect(level.val)}
+                        disabled={isTeamMember}
+                        style={{
+                          backgroundColor: isSelected ? level.color : undefined,
+                          borderColor: isSelected ? level.color : undefined,
+                          color: isSelected ? "var(--text-on-dark)" : undefined,
+                          cursor: isTeamMember ? 'default' : 'pointer'
+                        }}
+                      >
+                        <span className="maturity-val">{level.val}</span>
+                        <span className="maturity-label">{level.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
               </div>
 
-            </div>
+              {/* Evidence Query Choice Box */}
+              {currentAnswer.compliance !== undefined && currentAnswer.maturity !== undefined && (
+                <div style={{
+                  background: "var(--surface-hover)",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: "12px",
+                  padding: "20px",
+                  marginTop: "20px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "12px"
+                }}>
+                  <h4 style={{ margin: 0, fontSize: "0.95rem", fontWeight: 800, color: "var(--text-main)" }}>
+                    Do you want to upload evidence for this control?
+                  </h4>
+                  <div style={{ display: "flex", gap: "24px", marginTop: "4px" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.95rem", fontWeight: 600, color: "var(--text-main)", cursor: "pointer" }}>
+                      <input
+                        type="radio"
+                        name="evidenceChoice"
+                        value="yes"
+                        checked={currentAnswer.evidenceChoice === "yes"}
+                        onChange={() => handleEvidenceChoice("yes")}
+                        style={{ width: "18px", height: "18px", accentColor: "var(--primary)" }}
+                      />
+                      Yes
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.95rem", fontWeight: 600, color: "var(--text-main)", cursor: "pointer" }}>
+                      <input
+                        type="radio"
+                        name="evidenceChoice"
+                        value="no"
+                        checked={currentAnswer.evidenceChoice === "no" || currentAnswer.evidenceChoice === undefined}
+                        onChange={() => handleEvidenceChoice("no")}
+                        style={{ width: "18px", height: "18px", accentColor: "var(--primary)" }}
+                      />
+                      No
+                    </label>
+                  </div>
+                </div>
+              )}
 
-            {/* Evidence Upload */}
-            <div className="evidence-section">
-              <h3>Evidence & Documentation</h3>
-              <div className="evidence-upload">
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleFileUpload}
-                  id="evidence-upload"
-                  disabled={uploading}
-                />
-                <label htmlFor="evidence-upload" className="upload-label">
-                  <span className="upload-icon">📎</span>
-                  <span>{uploading ? "Uploading..." : "Attach Evidence"}</span>
-                  <span className="upload-hint">PDF, DOCX, PNG, JPG (Max 10MB)</span>
-                </label>
-              </div>
-
-              {evidence[currentQuestion?.question_id] && evidence[currentQuestion?.question_id].length > 0 && (
-                <div className="evidence-list">
-                  {evidence[currentQuestion?.question_id].map((file, i) => (
-                    <div key={i} className="evidence-item">
-                      <span className="evidence-icon">✓</span>
-                      <span className="evidence-name">{file.original_name || file.originalname}</span>
-                      <span className="evidence-size">
-                        {Math.round((file.file_size || file.size) / 1024)} KB
-                      </span>
+              {/* Evidence Section (conditional on evidenceChoice === 'yes') */}
+              {currentAnswer.evidenceChoice === "yes" && (
+                <div className="evidence-section" style={{ marginTop: "24px" }}>
+                  <h3>Evidence & Documentation</h3>
+                  
+                  {!isTeamMember && (
+                    <div className="evidence-upload">
+                      <input
+                        type="file"
+                        multiple
+                        onChange={handleFileUpload}
+                        id="evidence-upload"
+                        disabled={uploading}
+                      />
+                      <label htmlFor="evidence-upload" className="upload-label">
+                        <span className="upload-icon">📎</span>
+                        <span>{uploading ? "Uploading..." : "Attach Evidence"}</span>
+                        <span className="upload-hint">PDF, DOCX, PNG, JPG (Max 10MB)</span>
+                      </label>
                     </div>
-                  ))}
+                  )}
+
+                  {evidence[currentQuestion?.question_id] && evidence[currentQuestion?.question_id].length > 0 && (
+                    <div className="evidence-list">
+                      {evidence[currentQuestion?.question_id].map((file, i) => (
+                        <div key={i} className="evidence-item">
+                          <span className="evidence-icon">✓</span>
+                          <span className="evidence-name">{file.original_name || file.originalname}</span>
+                          <span className="evidence-size">
+                            {Math.round((file.file_size || file.size) / 1024)} KB
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-          </div>
 
-          <div className="question-navigation" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 0", marginTop: 16, borderTop: "1px solid var(--border-color)" }}>
-            <button className="btn btn-outline" onClick={prev} disabled={currentIndex === 0}
-              style={{ padding: "10px 20px", fontSize: "0.85rem", fontWeight: 600, borderRadius: 8, opacity: currentIndex === 0 ? 0.4 : 1 }}>
-              ← Previous
-            </button>
-            <div></div>
+            <div className="question-navigation" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 0", marginTop: 24, borderTop: "1px solid var(--border-color)" }}>
+              <button className="btn btn-outline" onClick={prev} disabled={currentIndex === 0}
+                style={{ padding: "10px 20px", fontSize: "0.85rem", fontWeight: 600, borderRadius: 8, opacity: currentIndex === 0 ? 0.4 : 1, width: "auto" }}>
+                ← Previous
+              </button>
+              
+              {((currentAnswer.compliance !== undefined && currentAnswer.maturity !== undefined && currentAnswer.evidenceChoice === "yes") || 
+                (currentAnswer.compliance !== undefined && currentAnswer.maturity !== undefined && currentAnswer.evidenceChoice === "no")) && (
+                <button 
+                  className="btn btn-primary" 
+                  onClick={next}
+                  style={{ padding: "10px 20px", fontSize: "0.85rem", fontWeight: 600, borderRadius: 8, width: "auto", height: "auto" }}
+                >
+                  {currentIndex === questions.length - 1 ? "Finish Assessment →" : "Next →"}
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
+      </div>
+
+      {/* Exit Confirmation Modal */}
+      {showExitModal && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "100vw",
+          height: "100vh",
+          backgroundColor: "rgba(15, 23, 42, 0.6)",
+          backdropFilter: "blur(8px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999,
+        }}>
+          <div style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border-color)",
+            borderRadius: "16px",
+            padding: "32px",
+            maxWidth: "480px",
+            width: "90%",
+            boxShadow: "var(--shadow-lg)",
+            textAlign: "center",
+          }}>
+            <h3 style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--text-main)", marginBottom: "12px" }}>
+              Are you sure you want to exit?
+            </h3>
+            <p style={{ color: "var(--text-muted)", fontSize: "0.95rem", marginBottom: "28px", lineHeight: "1.5" }}>
+              Your current progress is saved, but you will need to return to complete the assessment and generate the report.
+            </p>
+            <div style={{ display: "flex", gap: "16px", justifyContent: "center" }}>
+              <button
+                className="btn btn-outline"
+                onClick={() => setShowExitModal(false)}
+                style={{ flex: 1, height: "44px", padding: "0" }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  setShowExitModal(false);
+                  navigate("/start");
+                }}
+                style={{ flex: 1, height: "44px", padding: "0" }}
+              >
+                Yes, Exit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

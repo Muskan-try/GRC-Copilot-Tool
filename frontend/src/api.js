@@ -21,7 +21,48 @@ export function getToken() {
 }
 
 export function getCurrentUser() {
-  return currentUser;
+  let user = null;
+  try {
+    const storedUser = localStorage.getItem("currentUser");
+    if (storedUser) {
+      user = JSON.parse(storedUser);
+    }
+  } catch (e) {
+    console.error("Error parsing currentUser from localStorage:", e);
+  }
+
+  // If currentUser is missing, or does not have a role, extract it from the JWT grc_auth_token
+  if (!user || !user.role) {
+    const token = localStorage.getItem("grc_auth_token");
+    if (token) {
+      try {
+        const parts = token.split('.');
+        if (parts.length === 3) {
+          const base64Url = parts[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(
+            atob(base64)
+              .split('')
+              .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+              .join('')
+          );
+          const decoded = JSON.parse(jsonPayload);
+          if (decoded && decoded.role) {
+            user = {
+              user_id: decoded.user_id,
+              email: decoded.email,
+              role: decoded.role,
+              org_id: decoded.org_id,
+              ...user
+            };
+          }
+        }
+      } catch (e) {
+        console.error("Error decoding token for user role:", e);
+      }
+    }
+  }
+  return user;
 }
 
 export function setCurrentUser(user) {
@@ -34,8 +75,9 @@ export function setCurrentUser(user) {
 }
 
 function headers(extra = {}) {
+  const token = localStorage.getItem("grc_auth_token");
   const h = { "Content-Type": "application/json", ...extra };
-  if (authToken) h["Authorization"] = `Bearer ${authToken}`;
+  if (token) h["Authorization"] = `Bearer ${token}`;
   return h;
 }
 
@@ -68,10 +110,11 @@ async function request(path, options = {}) {
 }
 
 // ─── Auth ───────────────────────────────────────────────────────
-export async function register(email, password, orgName) {
+export async function register(email, password, orgName, role = 'org_admin') {
+  const finalRole = role || 'org_admin';
   const data = await request("/auth/register", {
     method: "POST",
-    body: { email, password, org_name: orgName }, 
+    body: { email, password, org_name: orgName, role: finalRole }, 
   });
   setToken(data.token);
   setCurrentUser({ user_id: data.user_id, email: data.email, role: data.role, org_id: data.org_id });
@@ -101,7 +144,7 @@ export function logout() {
 }
 
 export function isAuthenticated() {
-  return !!authToken;
+  return !!localStorage.getItem("grc_auth_token");
 }
 
 // ─── Organization ───────────────────────────────────────────────
@@ -435,4 +478,16 @@ export async function updateCalendarEvent(id, data) {
 
 export async function deleteCalendarEvent(id) {
   return request(`/calendar/events/${id}`, { method: 'DELETE' });
+}
+
+export async function getOrgDashboardData() {
+  return request('/org/dashboard-data');
+}
+
+export async function deleteAssessmentV2(assessmentId) {
+  return request(`/v2/assessment/${assessmentId}`, { method: 'DELETE' });
+}
+
+export async function listPolicies() {
+  return request('/policies');
 }

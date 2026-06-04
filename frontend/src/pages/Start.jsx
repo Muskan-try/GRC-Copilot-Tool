@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { logout, getCurrentUser, listDashboards } from "../api";
+import { logout, getCurrentUser, listDashboards, deleteAssessmentV2, getProfile, setCurrentUser } from "../api";
 import { useToast } from "../components/Toast";
 import { useTheme } from "../contexts/ThemeContext";
 
@@ -84,10 +84,11 @@ function getFrontendType(a) {
     return "quick";
   }
 
-  if (assessmentType === "gap_assessment") return "gap";
+  if (assessmentType === "gap_assessment" || assessmentType === "gap_analysis") return "gap";
   if (assessmentType === "risk_assessment") return "risk";
   if (assessmentType === "vendor_assessment") return "vendor";
   if (assessmentType === "internal_audit") return "internal";
+  if (assessmentType === "full_assessment") return "full";
 
   // compliance_assessment maps to quick or full based on depth
   if (assessmentType === "compliance_assessment") {
@@ -116,10 +117,30 @@ export default function Start() {
   const [activeSummary, setActiveSummary] = useState(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [deleteAssessmentId, setDeleteAssessmentId] = useState(null);
 
   const fetchStats = async () => {
     setRefreshing(true);
     try {
+      // Sync profile data dynamically on fetch to ensure invited users detect real-time role/org updates immediately
+      try {
+        const profile = await getProfile();
+        const storedUser = getCurrentUser();
+        if (profile && (profile.organization?.org_id !== storedUser?.org_id || profile.role !== storedUser?.role)) {
+          const updatedUser = {
+            ...storedUser,
+            org_id: profile.organization?.org_id,
+            role: profile.role,
+            email: profile.email
+          };
+          setCurrentUser(updatedUser);
+          window.location.reload();
+          return;
+        }
+      } catch (profileErr) {
+        console.warn("Failed to sync profile context:", profileErr);
+      }
+
       const res = await listDashboards();
       setAssessments(res.assessments || []);
     } catch (err) {
@@ -130,10 +151,26 @@ export default function Start() {
     }
   };
 
+  const handleDeleteAssessment = (assessmentId) => {
+    setDeleteAssessmentId(assessmentId);
+  };
+
+  const confirmDeleteAssessment = async () => {
+    if (!deleteAssessmentId) return;
+    try {
+      await deleteAssessmentV2(deleteAssessmentId);
+      toast.addToast("Assessment deleted successfully", "success");
+      setDeleteAssessmentId(null);
+      fetchStats();
+    } catch (err) {
+      console.error("Failed to delete assessment:", err);
+      toast.addToast(err.message || "Failed to delete assessment", "error");
+      setDeleteAssessmentId(null);
+    }
+  };
+
   useEffect(() => {
     fetchStats();
-    const interval = setInterval(fetchStats, 5000);
-    return () => clearInterval(interval);
   }, []);
 
   const typeGroups = useMemo(() => {
@@ -225,36 +262,58 @@ export default function Start() {
               marginBottom: 20,
             }}
           >
-            Assessments
+            {user?.role === 'team_member' ? "Read-Only Portal" : "Assessments"}
           </h2>
         </div>
 
         <nav style={{ flex: 1 }}>
-          {ASSESSMENT_INFO.map((item) => (
+          {user?.role === 'team_member' ? (
             <button
-              key={item.id}
-              onClick={() => setOverlayInfo(item)}
               style={{
                 width: "100%",
                 padding: "16px 24px",
                 display: "flex",
                 alignItems: "center",
                 gap: 12,
-                background: "transparent",
+                background: "var(--hover-subtle)",
                 border: "none",
-                cursor: "pointer",
+                cursor: "default",
                 textAlign: "left",
                 transition: "all 0.2s ease",
-                color: "var(--text-on-dark)",
-                borderLeft: "3px solid transparent",
+                color: "var(--primary)",
+                borderLeft: "3px solid var(--primary)",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--hover-subtle)")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
-              <span style={{ fontSize: "1.2rem" }}>{item.icon}</span>
-              <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>{item.title}</span>
+              <span style={{ fontSize: "1.2rem" }}>📊</span>
+              <span style={{ fontSize: "0.9rem", fontWeight: 800 }}>GRC Dashboard</span>
             </button>
-          ))}
+          ) : (
+            ASSESSMENT_INFO.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => setOverlayInfo(item)}
+                style={{
+                  width: "100%",
+                  padding: "16px 24px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  transition: "all 0.2s ease",
+                  color: "var(--text-on-dark)",
+                  borderLeft: "3px solid transparent",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--hover-subtle)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                <span style={{ fontSize: "1.2rem" }}>{item.icon}</span>
+                <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>{item.title}</span>
+              </button>
+            ))
+          )}
         </nav>
 
         <div style={{ padding: "24px", borderTop: "1px solid var(--border-light)", display: "flex", flexDirection: "column", gap: 0 }}>
@@ -395,6 +454,9 @@ export default function Start() {
             <button
               onClick={fetchStats}
               style={{
+                width: 130,
+                justifyContent: "center",
+                flexShrink: 0,
                 padding: "6px 14px",
                 borderRadius: 8,
                 border: "1px solid var(--border-color)",
@@ -411,194 +473,334 @@ export default function Start() {
               <span style={{ display: refreshing ? "inline-block" : "none", width: 12, height: 12, border: "2px solid var(--text-light)", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />
               {refreshing ? "Refreshing..." : "Refresh"}
             </button>
-            <div style={{ textAlign: "right", fontSize: "0.85rem", color: "var(--text-muted)" }}>
-              Welcome, <strong>{user?.email?.split("@")[0]}</strong>
+            <div style={{ textAlign: "right", fontSize: "0.85rem", color: "var(--text-muted)", display: 'flex', alignItems: 'center', gap: 10 }}>
+              {user?.role === 'admin' && (
+                <span style={{ background: 'var(--danger)', color: '#fff', fontSize: '0.65rem', fontWeight: 800, padding: '2px 6px', borderRadius: 4, textTransform: 'uppercase' }}>Admin</span>
+              )}
+              <div>
+                Welcome, <strong>{user?.email?.split("@")[0]}</strong>
+                <div style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 700, textTransform: 'uppercase' }}>{user?.role?.replace('_', ' ')}</div>
+              </div>
             </div>
           </div>
         </header>
 
         {/* CENTER CONTENT */}
         <div style={{ padding: "60px 40px", display: "flex", flexDirection: "column", alignItems: "center" }}>
-          <div style={{ maxWidth: 1000, width: "100%", textAlign: "center" }}>
-            <h2 style={{ fontSize: "2.5rem", marginBottom: 20, fontWeight: 800 }}>Audit Performance</h2>
-            <p className="subtitle" style={{ marginBottom: 48 }}>
-              A consolidated view of all your compliance activities and progress.
-            </p>
+          {user?.role === 'team_member' ? (
+            <div style={{ maxWidth: 1000, width: "100%" }}>
+              <div style={{ background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)", padding: 32, borderRadius: 24, color: "#fff", marginBottom: 40, border: "1px solid var(--cyber-border)", boxShadow: "0 10px 30px rgba(0,0,0,0.15)", position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: -50, right: -50, width: 200, height: 200, background: "radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0) 70%)", borderRadius: "50%" }} />
+                <div style={{ display: "inline-block", background: "rgba(59, 130, 246, 0.15)", color: "var(--primary)", padding: "6px 14px", borderRadius: 8, fontSize: "0.7rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
+                  Read-Only Access Portal
+                </div>
+                <h2 style={{ margin: 0, fontSize: "2rem", fontWeight: 900, color: "#fff", textAlign: "left" }}>GRC Compliance Dashboard</h2>
+                <p style={{ color: "#94a3b8", fontSize: "0.95rem", margin: "8px 0 0 0", lineHeight: 1.6, textAlign: "left" }}>
+                  Welcome back! You have active reader credentials. Below is the complete record of compliance assessments, security maturity scores, and generated reports authorized by your Team Lead.
+                </p>
+              </div>
 
-            {/* GLOBAL SUMMARY CARDS */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 48 }}>
-              <div className="card" style={{ padding: 32, textAlign: "left", borderLeft: "6px solid var(--primary)" }}>
-                <div
-                  style={{
-                    fontSize: "0.8rem",
-                    fontWeight: 800,
-                    color: "var(--text-light)",
-                    textTransform: "uppercase",
-                    marginBottom: 8,
-                  }}
-                >
-                  Global Health
+              {/* STATS OVERVIEW */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 24, marginBottom: 40 }}>
+                <div className="card" style={{ padding: 24, textAlign: "left", borderLeft: "5px solid var(--primary)" }}>
+                  <div style={{ fontSize: "0.7rem", fontWeight: 800, color: "var(--text-light)", textTransform: "uppercase", marginBottom: 6 }}>Global Maturity Health</div>
+                  <div style={{ fontSize: "2.2rem", fontWeight: 900, color: "var(--text-main)" }}>{globalHealth}%</div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>Average organization score</div>
                 </div>
-                <div style={{ fontSize: "2.5rem", fontWeight: 900, color: "var(--text-main)" }}>
-                  {globalHealth}%
+                <div className="card" style={{ padding: 24, textAlign: "left", borderLeft: "5px solid var(--success)" }}>
+                  <div style={{ fontSize: "0.7rem", fontWeight: 800, color: "var(--text-light)", textTransform: "uppercase", marginBottom: 6 }}>Completed Audits</div>
+                  <div style={{ fontSize: "2.2rem", fontWeight: 900, color: "var(--text-main)" }}>
+                    {assessments.filter(a => a.status === "complete").length}
+                  </div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>Fully generated reports</div>
                 </div>
-                <div style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
-                  Average Compliance across {assessments.filter(a => a.compliance_score !== null && a.compliance_score !== undefined).length} scored assessments
+                <div className="card" style={{ padding: 24, textAlign: "left", borderLeft: "5px solid var(--warning)" }}>
+                  <div style={{ fontSize: "0.7rem", fontWeight: 800, color: "var(--text-light)", textTransform: "uppercase", marginBottom: 6 }}>Active Assessments</div>
+                  <div style={{ fontSize: "2.2rem", fontWeight: 900, color: "var(--text-main)" }}>
+                    {assessments.filter(a => a.status !== "complete").length}
+                  </div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 4 }}>In progress by Team Lead</div>
                 </div>
               </div>
 
-              <div className="card" style={{ padding: 32, textAlign: "left", borderLeft: "6px solid var(--success)" }}>
-                <div
-                  style={{
-                    fontSize: "0.8rem",
-                    fontWeight: 800,
-                    color: "var(--text-light)",
-                    textTransform: "uppercase",
-                    marginBottom: 8,
-                  }}
-                >
-                  Activity Summary
-                </div>
-                <div style={{ display: "flex", gap: 24, alignItems: "center", marginTop: 8 }}>
-                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }} onClick={() => setActiveSummary({ status: 'complete', type: null })}>
-                    <span style={{ fontSize: "1.8rem", fontWeight: 800, color: "var(--success)" }}>
-                      {assessments.filter((a) => a.status === "complete").length}
-                    </span>
-                    <span style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginLeft: 8 }}>Done</span>
-                  </div>
-                  <div style={{ width: 1, height: 30, background: "var(--border-color)" }}></div>
-                  <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }} onClick={() => setActiveSummary({ status: 'pending', type: null })}>
-                    <span style={{ fontSize: "1.8rem", fontWeight: 800, color: "var(--warning)" }}>
-                      {assessments.filter((a) => a.status !== "complete").length}
-                    </span>
-                    <span style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginLeft: 8 }}>In Progress</span>
-                  </div>
+              {/* ASSESSMENTS TABLE */}
+              <div style={{ textAlign: "left" }}>
+                <h3 style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--text-main)", marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
+                  📋 Organization Assessment Records
+                </h3>
+
+                <div style={{ overflow: "hidden", borderRadius: 16, border: "1px solid var(--border-color)", background: "var(--surface)", boxShadow: "var(--shadow-sm)" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr style={{ background: "var(--sidebar-bg)", textAlign: "left", borderBottom: "2px solid var(--border-color)" }}>
+                        <th style={{ padding: "16px 24px", color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", fontWeight: 800 }}>Assessment Details</th>
+                        <th style={{ padding: "16px 24px", color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", fontWeight: 800 }}>Target Framework</th>
+                        <th style={{ padding: "16px 24px", color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", fontWeight: 800 }}>Maturity Score</th>
+                        <th style={{ padding: "16px 24px", color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", fontWeight: 800 }}>Status</th>
+                        <th style={{ padding: "16px 24px", color: "var(--text-muted)", fontSize: "0.75rem", textTransform: "uppercase", fontWeight: 800, textAlign: "right" }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {assessments.length > 0 ? (
+                        assessments.map((a) => {
+                          const aType = a.is_agent ? "agent" : getFrontendType(a);
+                          const typeInfo = ASSESSMENT_INFO.find(info => info.id === aType);
+                          const score = safeScore(a.compliance_score);
+                          const badgeBg = a.status === 'complete' ? (score >= 80 ? '#f0fdf4' : score >= 50 ? '#fffbeb' : '#fef2f2') : '#f8fafc';
+                          const badgeText = a.status === 'complete' ? (score >= 80 ? '#166534' : score >= 50 ? '#92400e' : '#991b1b') : '#64748b';
+                          const badgeBorder = a.status === 'complete' ? (score >= 80 ? '#bbf7d0' : score >= 50 ? '#fde68a' : '#fecaca') : '#e2e8f0';
+
+                          return (
+                            <tr key={a.id} style={{ borderBottom: "1px solid var(--border-color)", transition: "background 0.2s" }}
+                                onMouseEnter={e => e.currentTarget.style.background = "var(--surface-hover)"}
+                                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                              <td style={{ padding: "16px 24px" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                  <span style={{ fontSize: "1.5rem" }}>{typeInfo?.icon || "🛡️"}</span>
+                                  <div>
+                                    <div style={{ fontWeight: 800, color: "var(--text-main)" }}>{typeInfo?.title || "Security Assessment"}</div>
+                                    <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>Org: {a.org_name || "Primary"}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td style={{ padding: "16px 24px", color: "var(--text-main)", fontWeight: 600 }}>{a.framework || "N/A"}</td>
+                              <td style={{ padding: "16px 24px" }}>
+                                {a.status === 'complete' ? (
+                                  <span style={{ padding: "4px 10px", borderRadius: 8, fontSize: "0.8rem", fontWeight: 800, background: badgeBg, color: badgeText, border: `1px solid ${badgeBorder}` }}>
+                                    {Math.round(score)}% Compliant
+                                  </span>
+                                ) : (
+                                  <span style={{ fontSize: "0.8rem", color: "var(--text-muted)", fontStyle: "italic" }}>
+                                    Pending Audit
+                                  </span>
+                                )}
+                              </td>
+                              <td style={{ padding: "16px 24px" }}>
+                                <span style={{
+                                  padding: "4px 10px", borderRadius: 6, fontSize: "0.7rem", fontWeight: 800, textTransform: "uppercase",
+                                  background: a.status === 'complete' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                                  color: a.status === 'complete' ? '#22c55e' : '#f59e0b'
+                                }}>
+                                  {a.status === 'complete' ? 'Completed' : 'In Progress'}
+                                </span>
+                              </td>
+                              <td style={{ padding: "16px 24px", textAlign: "right" }}>
+                                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                                  {a.status === 'complete' ? (
+                                    <>
+                                      <button className="btn btn-primary" style={{ padding: "6px 14px", fontSize: "0.75rem", height: "auto", width: "auto", borderRadius: 8 }}
+                                              onClick={() => navigate(`/dashboard-v2/${a.id}`)}>
+                                        📊 View Dashboard
+                                      </button>
+                                      <button className="btn btn-outline" style={{ padding: "6px 14px", fontSize: "0.75rem", height: "auto", width: "auto", borderRadius: 8 }}
+                                              onClick={() => navigate(`/report-v2/${a.id}`)}>
+                                        📄 View Report
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <button className="btn btn-outline" style={{ padding: "6px 14px", fontSize: "0.75rem", height: "auto", width: "auto", borderRadius: 8, border: "1px dashed var(--border-color)", cursor: "not-allowed" }} disabled>
+                                      ⏳ Continuing by Lead
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan="5" style={{ padding: 60, textAlign: "center", color: "var(--text-muted)" }}>
+                            No active or completed assessments found in your organization.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
+          ) : (
+            <div style={{ maxWidth: 1000, width: "100%", textAlign: "center" }}>
+              <h2 style={{ fontSize: "2.5rem", marginBottom: 20, fontWeight: 800 }}>Audit Performance</h2>
+              <p className="subtitle" style={{ marginBottom: 48 }}>
+                {user?.role === 'admin' ? "Global monitoring dashboard for all active organizations and security audits." : "A consolidated view of all your compliance activities and progress."}
+              </p>
 
-            <div className="divider" style={{ margin: "48px 0" }} />
+              {/* GLOBAL SUMMARY CARDS */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 48 }}>
+                <div className="card" style={{ padding: 32, textAlign: "left", borderLeft: "6px solid var(--primary)" }}>
+                  <div
+                    style={{
+                      fontSize: "0.8rem",
+                      fontWeight: 800,
+                      color: "var(--text-light)",
+                      textTransform: "uppercase",
+                      marginBottom: 8,
+                    }}
+                  >
+                    {user?.role === 'admin' ? "System-wide Health" : "Global Health"}
+                  </div>
+                  <div style={{ fontSize: "2.5rem", fontWeight: 900, color: "var(--text-main)" }}>
+                    {globalHealth}%
+                  </div>
+                  <div style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                    Average Compliance across {assessments.filter(a => a.compliance_score !== null && a.compliance_score !== undefined).length} scored assessments
+                  </div>
+                </div>
 
-            {/* TYPE SPECIFIC SCOREBOARDS */}
-            <div style={{ textAlign: "left", marginBottom: 32 }}>
-              <h3 style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--text-main)", marginBottom: 24 }}>
-                Assessment Type Scoreboards
-              </h3>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 24 }}>
-                {Object.keys(typeGroups).length > 0 ? (
-                  Object.entries(typeGroups).map(([type, group]) => {
-                    const avgScore =
-                      group.scores.length > 0
-                        ? Math.round(group.scores.reduce((a, b) => a + b, 0) / group.scores.length)
-                        : 0;
-                    return (
-                      <div
-                        key={type}
-                        className="card"
-                        style={{ padding: 24, border: "1px solid var(--border-color)", boxShadow: "var(--shadow-sm)" }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-                          <span style={{ fontSize: "1.5rem" }}>{group.icon}</span>
-                          <h4 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>{group.title}</h4>
-                        </div>
+                <div className="card" style={{ padding: 32, textAlign: "left", borderLeft: "6px solid var(--success)" }}>
+                  <div
+                    style={{
+                      fontSize: "0.8rem",
+                      fontWeight: 800,
+                      color: "var(--text-light)",
+                      textTransform: "uppercase",
+                      marginBottom: 8,
+                    }}
+                  >
+                    Activity Summary
+                  </div>
+                  <div style={{ display: "flex", gap: 24, alignItems: "center", marginTop: 8 }}>
+                    <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }} onClick={() => setActiveSummary({ status: 'complete', type: null })}>
+                      <span style={{ fontSize: "1.8rem", fontWeight: 800, color: "var(--success)" }}>
+                        {assessments.filter((a) => a.status === "complete").length}
+                      </span>
+                      <span style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginLeft: 8 }}>Done</span>
+                    </div>
+                    <div style={{ width: 1, height: 30, background: "var(--border-color)" }}></div>
+                    <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }} onClick={() => setActiveSummary({ status: 'pending', type: null })}>
+                      <span style={{ fontSize: "1.8rem", fontWeight: 800, color: "var(--warning)" }}>
+                        {assessments.filter((a) => a.status !== "complete").length}
+                      </span>
+                      <span style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginLeft: 8 }}>In Progress</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-                        <div style={{ marginBottom: 24 }}>
+              <div className="divider" style={{ margin: "48px 0" }} />
+
+              {/* TYPE SPECIFIC SCOREBOARDS */}
+              <div style={{ textAlign: "left", marginBottom: 32 }}>
+                <h3 style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--text-main)", marginBottom: 24 }}>
+                  {user?.role === 'admin' ? "Global Assessment Metrics" : "Assessment Type Scoreboards"}
+                </h3>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 24 }}>
+                  {Object.keys(typeGroups).length > 0 ? (
+                    Object.entries(typeGroups).map(([type, group]) => {
+                      const avgScore =
+                        group.scores.length > 0
+                          ? Math.round(group.scores.reduce((a, b) => a + b, 0) / group.scores.length)
+                          : 0;
+                      return (
+                        <div
+                          key={type}
+                          className="card"
+                          style={{ padding: 24, border: "1px solid var(--border-color)", boxShadow: "var(--shadow-sm)" }}
+                        >
+                          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                            <span style={{ fontSize: "1.5rem" }}>{group.icon}</span>
+                            <h4 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>{group.title}</h4>
+                          </div>
+
+                          <div style={{ marginBottom: 24 }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                fontSize: "0.85rem",
+                                fontWeight: 700,
+                                marginBottom: 8,
+                              }}
+                            >
+                              <span style={{ color: "var(--text-muted)" }}>Overall Compliance</span>
+                              <span style={{ color: "var(--primary)" }}>{avgScore}%</span>
+                            </div>
+                            <div style={{ height: 8, background: "var(--border-color)", borderRadius: 4, overflow: "hidden" }}>
+                              <div
+                                style={{
+                                  width: `${avgScore}%`,
+                                  height: "100%",
+                                  background: "var(--primary)",
+                                  transition: "width 0.5s",
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+
                           <div
                             style={{
                               display: "flex",
                               justifyContent: "space-between",
-                              fontSize: "0.85rem",
-                              fontWeight: 700,
-                              marginBottom: 8,
+                              borderTop: "1px solid var(--border-color)",
+                              paddingTop: 16,
                             }}
                           >
-                            <span style={{ color: "var(--text-muted)" }}>Overall Compliance</span>
-                            <span style={{ color: "var(--primary)" }}>{avgScore}%</span>
-                          </div>
-                          <div style={{ height: 8, background: "var(--border-color)", borderRadius: 4, overflow: "hidden" }}>
-                            <div
-                              style={{
-                                width: `${avgScore}%`,
-                                height: "100%",
-                                background: "var(--primary)",
-                                transition: "width 0.5s",
-                              }}
-                            ></div>
-                          </div>
-                        </div>
-
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            borderTop: "1px solid var(--border-color)",
-                            paddingTop: 16,
-                          }}
-                        >
-                          <div style={{ textAlign: "center", cursor: 'pointer' }} onClick={() => setActiveSummary({ status: 'complete', type: type })}>
-                            <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "var(--text-main)" }}>
-                              {group.completed}
+                            <div style={{ textAlign: "center", cursor: 'pointer' }} onClick={() => setActiveSummary({ status: 'complete', type: type })}>
+                              <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "var(--text-main)" }}>
+                                {group.completed}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: "0.7rem",
+                                  color: "var(--text-muted)",
+                                  textTransform: "uppercase",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                Completed
+                              </div>
                             </div>
-                            <div
-                              style={{
-                                fontSize: "0.7rem",
-                                color: "var(--text-muted)",
-                                textTransform: "uppercase",
-                                fontWeight: 700,
-                              }}
-                            >
-                              Completed
+                            <div style={{ textAlign: "center", cursor: 'pointer' }} onClick={() => setActiveSummary({ status: 'pending', type: type })}>
+                              <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "var(--warning)" }}>{group.pending}</div>
+                              <div
+                                style={{
+                                  fontSize: "0.7rem",
+                                  color: "var(--text-muted)",
+                                  textTransform: "uppercase",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                Pending
+                              </div>
                             </div>
-                          </div>
-                          <div style={{ textAlign: "center", cursor: 'pointer' }} onClick={() => setActiveSummary({ status: 'pending', type: type })}>
-                            <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "var(--warning)" }}>{group.pending}</div>
-                            <div
-                              style={{
-                                fontSize: "0.7rem",
-                                color: "var(--text-muted)",
-                                textTransform: "uppercase",
-                                fontWeight: 700,
-                              }}
-                            >
-                              Pending
-                            </div>
-                          </div>
-                          <div style={{ textAlign: "center", cursor: 'pointer' }} onClick={() => setActiveSummary({ status: 'all', type: type })}>
-                            <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "var(--text-light)" }}>
-                              {group.total}
-                            </div>
-                            <div
-                              style={{
-                                fontSize: "0.7rem",
-                                color: "var(--text-muted)",
-                                textTransform: "uppercase",
-                                fontWeight: 700,
-                              }}
-                            >
-                              Total
+                            <div style={{ textAlign: "center", cursor: 'pointer' }} onClick={() => setActiveSummary({ status: 'all', type: type })}>
+                              <div style={{ fontSize: "1.2rem", fontWeight: 800, color: "var(--text-light)" }}>
+                                {group.total}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: "0.7rem",
+                                  color: "var(--text-muted)",
+                                  textTransform: "uppercase",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                Total
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div
-                    style={{
-                      gridColumn: "1/-1",
-                      padding: "60px",
-                      background: "var(--surface-hover)",
-                      borderRadius: 16,
-                      textAlign: "center",
-                      color: "var(--text-muted)",
-                    }}
-                  >
-                    No assessment data available to generate scoreboards.
-                  </div>
-                )}
+                      );
+                    })
+                  ) : (
+                    <div
+                      style={{
+                        gridColumn: "1/-1",
+                        padding: "60px",
+                        background: "var(--surface-hover)",
+                        borderRadius: 16,
+                        textAlign: "center",
+                        color: "var(--text-muted)",
+                      }}
+                    >
+                      No assessment data available to generate scoreboards.
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
       </div>
@@ -710,18 +912,26 @@ export default function Start() {
               </div>
 
               <div style={{ marginTop: 24, display: "flex", gap: 16 }}>
-                {overlayInfo.isAgent ? (
-                  <button className="btn btn-primary" onClick={() => navigate("/agent")} style={{ width: "100%" }}>
-                    Launch AI Agent
-                  </button>
-                ) : (overlayInfo.id === "full" || overlayInfo.id === "quick") && (
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => startNewFlow(overlayInfo.id)}
-                    style={{ width: "100%" }}
-                  >
-                    Start Assessment
-                  </button>
+                {user?.role === 'team_member' ? (
+                  <div style={{ width: '100%', padding: '16px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', textAlign: 'center', color: 'var(--danger)', fontSize: '0.85rem', fontWeight: 600 }}>
+                    Read-Only Access: You do not have permission to start assessments.
+                  </div>
+                ) : (
+                  <>
+                    {overlayInfo.isAgent ? (
+                      <button className="btn btn-primary" onClick={() => navigate("/agent")} style={{ width: "100%" }}>
+                        Launch AI Agent
+                      </button>
+                    ) : (overlayInfo.id === "full" || overlayInfo.id === "quick") && (
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => startNewFlow(overlayInfo.id)}
+                        style={{ width: "100%" }}
+                      >
+                        Start Assessment
+                      </button>
+                    )}
+                  </>
                 )}
                 <button className="btn btn-outline" onClick={() => setOverlayInfo(null)} style={{ width: "100%" }}>
                   Close
@@ -813,18 +1023,42 @@ export default function Start() {
                                             {new Date(a.created_at).toLocaleDateString()}
                                         </td>
                                         <td style={{ padding: '16px 8px', textAlign: 'right' }}>
-                                            {isAgent ? (
-                                                <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 700 }}>AI Agent Run</span>
-                                            ) : (
-                                                <button 
-                                                    className="btn btn-primary" 
-                                                    style={{ padding: '8px 16px', fontSize: '0.8rem', height: 'auto', width: 'auto', borderRadius: 8 }}
-                                                    onClick={() => navigate(a.status === 'complete' ? `/dashboard-v2/${a.id}` : `/questionnaire-enhanced/${a.id}`)}
-                                                >
-                                                    {a.status === 'complete' ? 'View Results' : 'Continue'}
-                                                </button>
-                                            )}
-                                        </td>
+                                             {isAgent ? (
+                                                 <span style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 700 }}>AI Agent Run</span>
+                                             ) : (
+                                                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                                     <button 
+                                                         className="btn btn-primary" 
+                                                         style={{ padding: '8px 16px', fontSize: '0.8rem', height: 'auto', width: 'auto', borderRadius: 8 }}
+                                                         onClick={() => navigate(a.status === 'complete' ? `/dashboard-v2/${a.id}` : `/questionnaire-enhanced/${a.id}`)}
+                                                     >
+                                                         {a.status === 'complete' ? 'View Results' : user?.role === 'team_member' ? 'View Progress' : 'Continue'}
+                                                     </button>
+                                                     {a.status !== 'complete' && user?.role !== 'team_member' && (
+                                                         <button 
+                                                             className="btn" 
+                                                             style={{ 
+                                                                 padding: '8px 16px', 
+                                                                 fontSize: '0.8rem', 
+                                                                 height: 'auto', 
+                                                                 width: 'auto', 
+                                                                 borderRadius: 8,
+                                                                 background: 'var(--danger)',
+                                                                 color: '#fff',
+                                                                 border: 'none',
+                                                                 cursor: 'pointer',
+                                                                 transition: 'opacity 0.2s'
+                                                             }}
+                                                             onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+                                                             onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                                                             onClick={() => handleDeleteAssessment(a.id)}
+                                                         >
+                                                             Delete
+                                                         </button>
+                                                     )}
+                                                 </div>
+                                             )}
+                                         </td>
                                     </tr>
                                 );
                             })
@@ -889,6 +1123,71 @@ export default function Start() {
                 className="btn btn-outline"
                 style={{ margin: 0 }}
                 onClick={() => setShowLogoutConfirm(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE ASSESSMENT CONFIRMATION MODAL */}
+      {deleteAssessmentId && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "var(--overlay-bg)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1200,
+          }}
+          onClick={() => setDeleteAssessmentId(null)}
+        >
+          <div
+            className="card"
+            style={{ maxWidth: 420, padding: 32, textAlign: "center", border: "1px solid var(--cyber-border)", boxShadow: "0 20px 50px rgba(0,0,0,0.3)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: "3rem", marginBottom: 16 }}>⚠️</div>
+            <h2 style={{ margin: "0 0 8px 0", fontSize: "1.3rem", fontWeight: 800, color: "var(--text-main)" }}>
+              Delete Assessment?
+            </h2>
+            <p style={{ color: "var(--text-muted)", fontSize: "0.95rem", marginBottom: 24, lineHeight: "1.5" }}>
+              Are you sure you want to delete this in-progress assessment? This action cannot be undone and all collected answers will be permanently lost.
+            </p>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
+              <button
+                className="btn"
+                style={{
+                  margin: 0,
+                  padding: "10px 20px",
+                  borderRadius: 8,
+                  background: "var(--danger)",
+                  color: "#fff",
+                  border: "none",
+                  fontWeight: 700,
+                  cursor: "pointer"
+                }}
+                onClick={confirmDeleteAssessment}
+              >
+                Delete
+              </button>
+              <button
+                className="btn btn-outline"
+                style={{
+                  margin: 0,
+                  padding: "10px 20px",
+                  borderRadius: 8,
+                  fontWeight: 700,
+                  cursor: "pointer"
+                }}
+                onClick={() => setDeleteAssessmentId(null)}
               >
                 Cancel
               </button>

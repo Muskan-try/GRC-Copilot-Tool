@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createAssessmentV2 } from "../api";
+import { createAssessmentV2, getCurrentUser } from "../api";
 import { useToast } from "../components/Toast";
 
 // Map frontend sidebar types to backend assessment_type values
@@ -48,12 +48,15 @@ const CATEGORIES = [
 export default function Compliance() {
   const navigate = useNavigate();
   const toast = useToast();
+  const user = getCurrentUser();
+  const isTeamMember = user?.role === 'team_member';
   const [selected, setSelected] = useState([]);
   const [loading, setLoading] = useState(false);
   const type = sessionStorage.getItem("assessmentType") || "quick";
   const isFullLike = ["full", "internal", "vendor", "risk", "gap"].includes(type);
 
   const toggleFramework = (id) => {
+    if (isTeamMember) return;
     if (!isFullLike) {
       selectFramework(id);
       return;
@@ -131,15 +134,21 @@ export default function Compliance() {
               {isFullLike ? "Choose the primary standard for your comprehensive audit." : "Choose the regulatory standard for your quick assessment."}
             </p>
           </div>
-          {isFullLike && (
-            <button 
-              className="btn btn-primary" 
-              disabled={selected.length === 0 || loading} 
-              onClick={handleFullAssessmentStart}
-              style={{ width: 'auto', padding: '0 32px' }}
-            >
-              {loading ? "Starting..." : "Start Full Assessment"}
-            </button>
+          {isTeamMember ? (
+            <div style={{ padding: '8px 16px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', color: 'var(--danger)', fontSize: '0.8rem', fontWeight: 600 }}>
+              Read-Only Access
+            </div>
+          ) : (
+            isFullLike && (
+              <button 
+                className="btn btn-primary" 
+                disabled={selected.length === 0 || loading} 
+                onClick={handleFullAssessmentStart}
+                style={{ width: 'auto', padding: '0 32px' }}
+              >
+                {loading ? "Starting..." : "Start Full Assessment"}
+              </button>
+            )
           )}
         </div>
 
@@ -158,13 +167,16 @@ export default function Compliance() {
                       type="button" 
                       className={`compliance-card ${isSelected ? 'active' : ''}`} 
                       onClick={() => toggleFramework(fw.id)}
+                      disabled={isTeamMember}
                       style={{ 
                         height: "100%", 
                         display: "flex", 
                         flexDirection: "column",
                         border: isSelected ? '2px solid var(--primary)' : '1px solid var(--border-color)',
                         background: isSelected ? 'rgba(var(--primary-rgb), 0.05)' : 'var(--surface)',
-                        textAlign: 'left'
+                        textAlign: 'left',
+                        cursor: isTeamMember ? 'not-allowed' : 'pointer',
+                        opacity: isTeamMember ? 0.8 : 1
                       }}
                     >
                       <div className="compliance-card-name">{fw.id}</div>

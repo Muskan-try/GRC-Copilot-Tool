@@ -6,19 +6,17 @@ const INDUSTRIES = [
   "Financial Services",
   "Healthcare",
   "Retail/E-commerce",
-  "Technology/Saas",
+  "Technology/SaaS",
   "Manufacturing",
-  "Government/Public Sector",
+  "Public Sector",
   "Education",
-  "Energy/Utilities",
-  "Telecommunication",
-  "Other",
+  "Energy & Utilities",
 ];
 
-const ORG_SIZES = [
+const SIZES = [
   "Small (1-50)",
-  "Medium (51-150)",
-  "Large (151-500)",
+  "Medium (51-200)",
+  "Large (201-500)",
   "Enterprise (500+)",
 ];
 
@@ -37,6 +35,7 @@ const CLOUD_STORAGE_USAGE = ["Less", "Medium", "High"];
 export default function Assessment() {
   const navigate = useNavigate();
   const user = getCurrentUser();
+  const isTeamMember = user?.role === 'team_member';
   const type = sessionStorage.getItem("assessmentType") || "quick";
   const isFullLike = ["full", "internal", "vendor", "risk", "gap"].includes(type);
 
@@ -50,144 +49,175 @@ export default function Assessment() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleNext = async () => {
-    if (!form.orgName.trim()) {
-      setError("Please enter your organisation name.");
-      return;
-    }
-    if (!form.cloudUsage) {
-      setError("Please select cloud storage usage.");
-      return;
-    }
-
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (isTeamMember) return;
     setLoading(true);
     setError("");
-
+    
     try {
-      // Store assessment details for later steps
+      const typeMap = {
+        "internal": "internal_audit",
+        "vendor": "vendor_assessment",
+        "risk": "risk_assessment",
+        "gap": "gap_assessment",
+        "full": "compliance_assessment",
+        "quick": "compliance_assessment"
+      };
+
+      const result = await setupOrganization({
+        name: form.orgName,
+        industry: form.industry,
+        region: form.region,
+        employee_range: form.orgSize,
+        frameworks: ["ISO/IEC 27001:2022"], // Default setup placeholder, custom configured in next steps
+        analysis_depth: isFullLike ? "comprehensive" : "quick", // Satisfies backend validation enum
+        assessment_type: typeMap[type] || "compliance_assessment"
+      });
+
+      // Save form details in sessionStorage
       sessionStorage.setItem("assessmentFormData", JSON.stringify(form));
-      // Clear old questionnaire data
-      sessionStorage.removeItem("answers");
-      sessionStorage.removeItem("assessmentId");
       
-      if (isFullLike) {
-        navigate("/scope");
-      } else {
-        navigate("/compliance");
+      // Store dynamic assessmentId returned by the setup response
+      if (result && (result.id || result.assessment_id)) {
+        sessionStorage.setItem("assessmentId", result.id || result.assessment_id);
       }
+
+      navigate("/compliance");
     } catch (err) {
-      setError(err.message || "Failed to setup assessment");
+      setError(err.message || "Failed to save organization profile. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="page" style={{ background: "var(--bg-color)" }}>
-      <div className="page-header" style={{ maxWidth: 600, width: "100%", marginBottom: 20 }}>
-        <button className="btn btn-back" onClick={() => navigate(-1)}>
-          Back
+    <div className="page" style={{ background: "var(--bg-color)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+      
+      {/* Back Navigation Bar */}
+      <div style={{ maxWidth: 520, width: "100%", marginBottom: 12, display: "flex", justifyContent: "flex-start" }}>
+        <button 
+          type="button" 
+          onClick={() => navigate(-1)} 
+          style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: "6px", 
+            background: "none", 
+            border: "1px solid var(--border-color)", 
+            padding: "8px 16px", 
+            borderRadius: "8px", 
+            color: "var(--text-main)", 
+            cursor: "pointer", 
+            fontWeight: 600,
+            transition: "all 0.2s"
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = "var(--surface-hover)"}
+          onMouseLeave={(e) => e.currentTarget.style.background = "none"}
+        >
+          ← Back
         </button>
       </div>
 
-      <div className="card" style={{ maxWidth: 600, padding: 48, border: "1px solid var(--cyber-border)" }}>
-        <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <div style={{ 
-            width: 56, height: 56, background: "var(--primary-light)", borderRadius: 12, 
-            display: "inline-flex", alignItems: "center", justifyContent: "center", 
-            marginBottom: 20, color: "var(--primary)", fontSize: "1.5rem"
-          }}>🏢</div>
-          <h1 style={{ color: "var(--text-main)" }}>Organization Profile</h1>
-          <p className="subtitle" style={{ margin: 0 }}>
-            Tell us about your organization to tailor your assessment.
-          </p>
-        </div>
+      <div className="card card-narrow" style={{ border: "1px solid var(--cyber-border)", background: "var(--surface)" }}>
+        <h1 style={{ color: "var(--text-main)" }}>Organization Profile</h1>
+        <p className="subtitle">Tell us about your organization to customize the assessment.</p>
 
         {error && (
-          <div style={{ padding: "12px 16px", background: "var(--danger-bg)", border: "1px solid #fee2e2", borderRadius: 12, marginBottom: 20, fontSize: "0.88rem", color: "var(--danger)" }}>
-            {error}
+          <div style={{ padding: 12, background: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.2)", color: "var(--danger)", borderRadius: 8, marginBottom: 20, fontSize: "0.85rem", fontWeight: 600 }}>
+            ⚠️ {error}
           </div>
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
+        <form onSubmit={handleSubmit}>
           <div className="field">
-            <label>Organisation Name</label>
+            <label style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: "0.8rem", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>Organization Name</label>
             <input
+              style={{ background: "var(--surface)", color: "var(--text-main)", border: "1px solid var(--border-color)", width: "100%", height: "40px", padding: "0 12px", borderRadius: "8px", outline: "none", boxSizing: "border-box" }}
               type="text"
-              placeholder="Acme Corp"
+              placeholder="e.g. Acme Corp"
               value={form.orgName}
               onChange={(e) => setForm({ ...form, orgName: e.target.value })}
+              required
+              disabled={isTeamMember}
             />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div className="field">
-              <label>Select Industry</label>
-              <select
-                value={form.industry}
-                onChange={(e) => setForm({ ...form, industry: e.target.value })}
-              >
-                <option value="">Select industry</option>
-                {INDUSTRIES.map((industry) => (
-                  <option key={industry} value={industry}>
-                    {industry}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="field">
-              <label>Organization Size</label>
-              <select
-                value={form.orgSize}
-                onChange={(e) => setForm({ ...form, orgSize: e.target.value })}
-              >
-                <option value="">Select size</option>
-                {ORG_SIZES.map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="field">
+            <label style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: "0.8rem", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>Industry</label>
+            <select
+              style={{ background: "var(--surface)", color: "var(--text-main)", border: "1px solid var(--border-color)", width: "100%", height: "40px", padding: "0 12px", borderRadius: "8px", outline: "none", boxSizing: "border-box" }}
+              value={form.industry}
+              onChange={(e) => setForm({ ...form, industry: e.target.value })}
+              required
+              disabled={isTeamMember}
+            >
+              <option value="">Select industry</option>
+              {INDUSTRIES.map((i) => (
+                <option key={i} value={i}>{i}</option>
+              ))}
+            </select>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <div className="field">
-              <label>Region/Location</label>
-              <select
-                value={form.region}
-                onChange={(e) => setForm({ ...form, region: e.target.value })}
-              >
-                <option value="">Select region</option>
-                {REGIONS.map((region) => (
-                  <option key={region} value={region}>
-                    {region}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="field">
-              <label>Cloud Storage Use</label>
-              <select
-                value={form.cloudUsage}
-                onChange={(e) => setForm({ ...form, cloudUsage: e.target.value })}
-              >
-                <option value="">Select usage</option>
-                {CLOUD_STORAGE_USAGE.map((usage) => (
-                  <option key={usage} value={usage}>
-                    {usage}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="field">
+            <label style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: "0.8rem", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>Organization Size</label>
+            <select
+              style={{ background: "var(--surface)", color: "var(--text-main)", border: "1px solid var(--border-color)", width: "100%", height: "40px", padding: "0 12px", borderRadius: "8px", outline: "none", boxSizing: "border-box" }}
+              value={form.orgSize}
+              onChange={(e) => setForm({ ...form, orgSize: e.target.value })}
+              required
+              disabled={isTeamMember}
+            >
+              <option value="">Select size</option>
+              {SIZES.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
           </div>
-        </div>
 
-        <button className="btn btn-primary" onClick={handleNext} disabled={loading} style={{ height: 54, fontSize: "1.05rem", marginTop: 24 }}>
-          {loading ? "Processing..." : isFullLike ? "Continue to Scope Definition" : "Continue to Frameworks"}
-        </button>
+          <div className="field">
+            <label style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: "0.8rem", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>Region</label>
+            <select
+              style={{ background: "var(--surface)", color: "var(--text-main)", border: "1px solid var(--border-color)", width: "100%", height: "40px", padding: "0 12px", borderRadius: "8px", outline: "none", boxSizing: "border-box" }}
+              value={form.region}
+              onChange={(e) => setForm({ ...form, region: e.target.value })}
+              required
+              disabled={isTeamMember}
+            >
+              <option value="">Select region</option>
+              {REGIONS.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Cloud Usage Section */}
+          <div className="field">
+            <label style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: "0.8rem", textTransform: "uppercase", display: "block", marginBottom: "6px" }}>Cloud Usage</label>
+            <select
+              style={{ background: "var(--surface)", color: "var(--text-main)", border: "1px solid var(--border-color)", width: "100%", height: "40px", padding: "0 12px", borderRadius: "8px", outline: "none", boxSizing: "border-box" }}
+              value={form.cloudUsage}
+              onChange={(e) => setForm({ ...form, cloudUsage: e.target.value })}
+              required
+              disabled={isTeamMember}
+            >
+              <option value="">Select cloud usage</option>
+              {CLOUD_STORAGE_USAGE.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          {isTeamMember ? (
+            <div style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '12px', marginTop: 24, textAlign: 'center', color: 'var(--danger)', fontSize: '0.9rem', fontWeight: 600 }}>
+              Read-Only Access: You cannot modify organization settings.
+            </div>
+          ) : (
+            <button className="btn btn-primary" type="submit" disabled={loading} style={{ height: 54, fontSize: "1.05rem", marginTop: 24, width: "100%" }}>
+              {loading ? "Processing..." : isFullLike ? "Continue to Framework Selection" : "Continue to Frameworks"}
+            </button>
+          )}
+        </form>
       </div>
     </div>
   );

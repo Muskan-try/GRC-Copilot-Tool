@@ -33,6 +33,7 @@ class AnalysisRequest(BaseModel):
     responses: list[ResponseItem]
     risk_priorities: dict[str, str] = {}
     evidence_total: int = 0
+    compliance_score: Optional[float] = None
 
 
 class RecommendationItem(BaseModel):

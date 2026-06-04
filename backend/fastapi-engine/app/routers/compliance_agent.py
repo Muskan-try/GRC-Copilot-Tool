@@ -14,16 +14,7 @@ import httpx  # ✅ Fixed: Added missing HTTP async client library import
 from app.core import database  
 from app.core.database import pg_pool
 
-# ✅ Fixed: Placeholder or direct utility for policy parsing to fix 'policy_parser' warning
-# If you have an explicit custom document parser package elsewhere, map it here!
-class LocalPolicyParser:
-    def parse(self, content: bytes, filename: str) -> str:
-        try:
-            return content.decode("utf-8", errors="ignore")
-        except Exception:
-            return ""
-
-policy_parser = LocalPolicyParser()
+from app.modules.compliance_agent.policy_parser import policy_parser
 
 router = APIRouter()
 
@@ -59,6 +50,123 @@ async def upload_policy(file: UploadFile = File(...)):
     except Exception as e:
         logger.error(f"File upload failed: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to upload policy: {str(e)}")
+
+@router.post("/analyze-policy")
+async def analyze_policy(
+    file: UploadFile = File(...),
+    selectedFramework: str = Form(...),
+    org_id: str = Form(...)
+):
+    """Parses document text stream and maps gaps against selected framework using active Auditor Agent."""
+    try:
+        content = await file.read()
+        if not content:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+            
+        logger.info(f"Analyzing policy: {file.filename} under framework {selectedFramework} for org {org_id}")
+        
+        # 1. Parse policy text using PDF/DOCX parser
+        try:
+            policy_text = policy_parser.parse(content, file.filename)
+        except Exception as parse_err:
+            logger.error(f"Text extraction failed for {file.filename}: {parse_err}")
+            raise HTTPException(status_code=400, detail=f"Failed to parse policy document structure: {str(parse_err)}")
+            
+        if not policy_text or not policy_text.strip():
+            raise HTTPException(status_code=400, detail="Policy text extraction returned empty or is unreadable.")
+            
+        # 2. Connect to the AI Agent Engine
+        from app.modules.ai_agent.ai_analyzer import LLMFactory
+        import json
+        
+        provider = LLMFactory.create_provider(os.getenv("LLM_PROVIDER", "groq"))
+        
+        system_prompt = f"You are an active GRC Compliance Auditor Agent. Review this parsed policy document text against {selectedFramework} control regulations. Identify the actual missing clauses, technical vulnerabilities, or process gaps present strictly in this unique text. Generate a dynamic JSON response tracking: gap_title, description, priority, and remediation_plan."
+        
+        user_prompt = f"""
+        Review the following parsed policy document:
+        Filename: {file.filename}
+        Organization context ID: {org_id}
+        Target Framework: {selectedFramework}
+        
+        Document Text:
+        {policy_text[:15000]}
+        
+        Identify all missing clauses, technical vulnerabilities, or process gaps present strictly in this unique text against {selectedFramework} regulations.
+        
+        Provide your findings in a strict JSON format with a single key "gaps" containing an array of objects.
+        Each object in the "gaps" array must have the following keys:
+        - "gap_title": A concise title for the identified gap.
+        - "description": A clear description of the missing clause or vulnerability.
+        - "priority": Priority level, strictly one of "High", "Medium", or "Low".
+        - "remediation_plan": A clear, actionable remediation step to resolve the gap.
+        
+        Return ONLY valid JSON matching this exact structure:
+        {{
+          "gaps": [
+            {{
+              "gap_title": "...",
+              "description": "...",
+              "priority": "High|Medium|Low",
+              "remediation_plan": "..."
+            }}
+          ]
+        }}
+        """
+        
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+        
+        response_content = await provider.chat_completion(
+            messages=messages,
+            temperature=0.1,
+            max_tokens=4000,
+            json_mode=True
+        )
+        
+        if not response_content:
+            raise HTTPException(status_code=500, detail="AI auditor failed to produce response content.")
+            
+        try:
+            parsed_response = json.loads(response_content)
+        except json.JSONDecodeError as je:
+            logger.error(f"JSON decode failed for response: {response_content}. Error: {je}")
+            raise HTTPException(status_code=500, detail="AI auditor response was not valid JSON.")
+            
+        gaps = parsed_response.get("gaps", [])
+        
+        # Calculate dynamic compliance score
+        # Deduct based on weight: High = -15, Medium = -8, Low = -3, minimum of 0
+        deductions = 0
+        for g in gaps:
+            priority = str(g.get("priority", "Low")).strip().title()
+            if priority == "High":
+                deductions += 15
+            elif priority == "Medium":
+                deductions += 8
+            else:
+                deductions += 3
+                
+        score = max(0, 100 - deductions)
+        
+        # Extract recommendations list
+        recommendations = [g.get("remediation_plan") for g in gaps if g.get("remediation_plan")]
+        
+        return {
+            "score": float(score),
+            "gaps": gaps,
+            "recommendations": recommendations
+        }
+        
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        logger.error(f"Error in policy upload analysis: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to analyze policy: {str(e)}")
+
+
 
 @router.post("/run")
 async def run_agent(
@@ -143,6 +251,9 @@ async def run_agent(
         content_hash_cache[cache_key] = result
         return result
 
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Multi-agent line execution crashed out: {e}")
         raise HTTPException(status_code=500, detail=f"Agent failed to process policy: {str(e)}")
@@ -309,24 +420,49 @@ async def get_report(report_id: str):
     return reports_db[report_id]
 
 @router.get("/assessments")
-async def list_agent_assessments():
-    """List all AI agent assessments from PG (ones created by the agent)."""
+async def list_agent_assessments(org_id: Optional[str] = None):
+    """List all AI agent assessments from PG (ones created by the agent) with optional tenant filtering."""
     results = []
     try:
         if database.pg_pool:
             async with database.pg_pool.acquire() as conn:
-                rows = await conn.fetch(
-                    """SELECT a.id, a.framework, a.analysis_depth, a.assessment_type, a.status,
-                              a.compliance_score, a.total_questions, a.answered_questions,
-                              a.created_at, a.completed_at, o.name AS org_name, o.industry
-                       FROM assessments a
-                       JOIN organizations o ON o.id = a.org_id
-                       WHERE a.assessment_type = 'agent_assessment'
-                       ORDER BY a.created_at DESC LIMIT 20"""
-                )
+                if org_id:
+                    # Resolve UUID conversion for asyncpg type matching
+                    parsed_org_id = org_id
+                    if isinstance(org_id, str):
+                        try:
+                            parsed_org_id = uuid.UUID(org_id)
+                        except ValueError:
+                            pass
+                    rows = await conn.fetch(
+                        """SELECT a.id, a.org_id, a.user_id, a.framework, a.analysis_depth, a.assessment_type, a.status,
+                                  a.compliance_score, a.total_questions, a.answered_questions,
+                                  a.created_at, a.completed_at, o.name AS org_name, o.industry
+                           FROM assessments a
+                           JOIN organizations o ON o.id = a.org_id
+                           WHERE a.assessment_type = 'agent_assessment' AND a.org_id = $1
+                           ORDER BY a.created_at DESC LIMIT 20""",
+                        parsed_org_id
+                    )
+                else:
+                    rows = await conn.fetch(
+                        """SELECT a.id, a.org_id, a.user_id, a.framework, a.analysis_depth, a.assessment_type, a.status,
+                                  a.compliance_score, a.total_questions, a.answered_questions,
+                                  a.created_at, a.completed_at, o.name AS org_name, o.industry
+                           FROM assessments a
+                           JOIN organizations o ON o.id = a.org_id
+                           WHERE a.assessment_type = 'agent_assessment'
+                           ORDER BY a.created_at DESC LIMIT 20"""
+                    )
                 for row in rows:
-                    results.append(dict(row))
+                    item = dict(row)
+                    # Convert UUID objects to strings for JSON serialization
+                    if item.get("id"): item["id"] = str(item["id"])
+                    if item.get("org_id"): item["org_id"] = str(item["org_id"])
+                    if item.get("user_id"): item["user_id"] = str(item["user_id"])
+                    results.append(item)
     except Exception as e:
         logger.warning(f"Failed to list agent assessments from PG: {e}")
 
     return {"assessments": results}
+

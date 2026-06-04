@@ -334,7 +334,19 @@ class QuestionnaireService {
     logger.info(`Saving dual-write response for assessment ${assessmentId}, question ${questionId}`);
 
     const assessResult = await query(
-      'SELECT id, assessment_type FROM assessments WHERE id = $1 AND user_id = $2',
+      `SELECT id, assessment_type FROM assessments 
+       WHERE id = $1 
+         AND (
+           user_id = $2 
+           OR (SELECT role FROM users WHERE id = $2) = 'admin'
+           OR org_id IN (
+             SELECT org_id 
+             FROM org_members 
+             WHERE user_id = $2 
+               AND status = 'active' 
+               AND role IN ('owner', 'admin', 'org_admin', 'team_lead')
+           )
+         )`,
       [assessmentId, userId]
     );
     if (assessResult.rows.length === 0) throw new Error('Unauthorized');

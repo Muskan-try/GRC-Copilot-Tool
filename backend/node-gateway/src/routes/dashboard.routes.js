@@ -15,7 +15,7 @@ router.get('/:assessmentId', authenticate, async (req, res, next) => {
       `SELECT a.*, o.name AS org_name, o.industry, o.region, o.frameworks
        FROM assessments a
        JOIN organizations o ON o.id = a.org_id
-       WHERE a.id = $1 AND a.user_id = $2`,
+       WHERE a.id = $1 AND (a.user_id = $2 OR a.org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active'))`,
       [assessmentId, req.user.user_id]
     );
 
@@ -111,18 +111,45 @@ router.get('/', authenticate, async (req, res, next) => {
   try {
     let pgAssessments = [];
     try {
-      const result = await query(
-        `SELECT a.id, a.framework, a.analysis_depth, a.assessment_type, a.status,
-                a.compliance_score, a.risk_level, a.total_questions,
-                a.answered_questions, a.created_at, a.completed_at,
-                o.name AS org_name, o.industry
-         FROM assessments a
-         JOIN organizations o ON o.id = a.org_id
-         WHERE a.user_id = $1
-         ORDER BY a.created_at DESC
-         LIMIT 20`,
-        [req.user.user_id]
-      );
+      let result;
+      if (req.user.role === 'admin') {
+        result = await query(
+          `SELECT a.id, a.framework, a.analysis_depth, a.assessment_type, a.status,
+                  a.compliance_score, a.risk_level, a.total_questions,
+                  a.answered_questions, a.created_at, a.completed_at,
+                  o.name AS org_name, o.industry
+           FROM assessments a
+           JOIN organizations o ON o.id = a.org_id
+           ORDER BY a.created_at DESC
+           LIMIT 20`
+        );
+      } else if (req.user.org_id) {
+        result = await query(
+          `SELECT a.id, a.framework, a.analysis_depth, a.assessment_type, a.status,
+                  a.compliance_score, a.risk_level, a.total_questions,
+                  a.answered_questions, a.created_at, a.completed_at,
+                  o.name AS org_name, o.industry
+           FROM assessments a
+           JOIN organizations o ON o.id = a.org_id
+           WHERE a.org_id = $1
+           ORDER BY a.created_at DESC
+           LIMIT 20`,
+          [req.user.org_id]
+        );
+      } else {
+        result = await query(
+          `SELECT a.id, a.framework, a.analysis_depth, a.assessment_type, a.status,
+                  a.compliance_score, a.risk_level, a.total_questions,
+                  a.answered_questions, a.created_at, a.completed_at,
+                  o.name AS org_name, o.industry
+           FROM assessments a
+           JOIN organizations o ON o.id = a.org_id
+           WHERE a.user_id = $1
+           ORDER BY a.created_at DESC
+           LIMIT 20`,
+          [req.user.user_id]
+        );
+      }
       pgAssessments = result.rows.map(a => ({
         ...a,
         is_agent: a.assessment_type === 'agent_assessment'
@@ -137,14 +164,29 @@ router.get('/', authenticate, async (req, res, next) => {
     try {
       const axios = require('axios');
       const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000';
-      const agentRes = await axios.get(`${FASTAPI_URL}/agent/compliance/assessments`, {
+      const orgId = req.user.org_id || '';
+      const agentRes = await axios.get(`${FASTAPI_URL}/agent/compliance/assessments?org_id=${orgId}`, {
         timeout: 5000,
         headers: { 'X-Internal-Service': 'grc-gateway' }
       });
-      agentAssessments = (agentRes.data.assessments || []).map(a => ({
-        ...a,
-        is_agent: true
-      }));
+      
+      // Fetch allowed assessment IDs from PostgreSQL under this organization
+      const pgAgentCheck = await query(
+        "SELECT id FROM assessments WHERE org_id = $1",
+        [req.user.org_id]
+      );
+      const allowedAgentIds = new Set(pgAgentCheck.rows.map(r => String(r.id)));
+
+      agentAssessments = (agentRes.data.assessments || [])
+        .filter(a => {
+          const matchesOrgId = a.org_id && String(a.org_id) === String(req.user.org_id);
+          const matchesPgCheck = allowedAgentIds.has(String(a.id));
+          return matchesOrgId || matchesPgCheck;
+        })
+        .map(a => ({
+          ...a,
+          is_agent: true
+        }));
     } catch (agentErr) {
       // Silently skip — FastAPI may not be running
     }

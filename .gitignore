@@ -44,3 +44,21 @@ query
 
 # Ignore local database and vector storage states
 backend/grc_vector_db/
+
+# Ignore virtual environments
+backend/fastapi-engine/venv_wsl/
+backend/fastapi-engine/venv_wsl_new/
+.venv/
+venv/
+
+# Ignore temporary testing files
+backend/fastapi-engine/temp_upload_compliance_test_report.pdf
+backend/fastapi-engine/temp_upload_test.txt
+backend/node-gateway/test.txt
+backend/node-gateway/check_*.js
+backend/node-gateway/dedup_orgs.js
+backend/node-gateway/reset_password.js
+backend/node-gateway/temp-*.js
+
+# Ignore runtime database files
+backend/grc_vector_db/chroma.sqlite3

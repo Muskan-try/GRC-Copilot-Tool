@@ -138,7 +138,7 @@ export default function LevelOfAssessment() {
 
       sessionStorage.setItem("analysisDepth", depthToSubmit);
       sessionStorage.setItem("assessmentType", selectedType);
-      navigate(`/questionnaire-enhanced/${assessmentId}`);
+      navigate(`/policy-upload/${assessmentId}`);
     } catch (err) {
       console.error("Failed to update assessment config:", err);
       toast.addToast("Failed to update assessment: " + (err.message || "Unknown error"), "error");

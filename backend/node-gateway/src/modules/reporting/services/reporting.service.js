@@ -52,7 +52,20 @@ class ReportingService {
     const totalQuestions = responses.length;
 
     // 3. Calculate real scores from actual responses
-    const scoreData = this.calculateScoresFromResponses(responses, assessmentType);
+    const totalWeight = responses.reduce((sum, r) => sum + (parseFloat(r.weight) || 1), 0);
+    const weightedScore = responses.reduce((sum, r) => {
+      const score = r.maturity_score || 0;
+      return sum + (score * (parseFloat(r.weight) || 1));
+    }, 0);
+    const scoreDataResult = await scoringService.calculateScore(assessmentId);
+    const scoreData = {
+      overall_score: scoreDataResult.overall_score,
+      status: scoreDataResult.status?.status || 'Active',
+      status_color: scoreDataResult.status?.color || '#94a3b8',
+      answered: responses.length,
+      total: responses.length,
+      average_maturity: responses.length > 0 ? (weightedScore / responses.length).toFixed(1) : "0.0",
+    };
 
     // 4. Calculate domain breakdown from actual responses
     const domainBreakdown = this.calculateDomainBreakdown(responses);
@@ -75,6 +88,95 @@ class ReportingService {
     if (questionnaire && questionnaire.questions) {
       questionnaire.questions.forEach(q => {
         questionMap[q.question_id] = { text: q.text, hint: q.hint };
+      });
+    }
+
+    // 8b. Fetch uploaded policies (evidence files) and their matching response scores
+    const policiesResult = await query(
+      `SELECT ef.id, ef.original_name as filename, ef.question_id, ef.file_size, ef.uploaded_at,
+              r.maturity_score, r.answer_text, c.name as control_name, c.domain
+       FROM evidence_files ef
+       LEFT JOIN responses r ON ef.assessment_id = r.assessment_id AND ef.question_id = r.question_id
+       LEFT JOIN controls c ON r.control_id = c.id
+       WHERE ef.assessment_id = $1
+       ORDER BY ef.uploaded_at DESC`,
+      [assessmentId]
+    ).catch(() => ({ rows: [] }));
+
+    const uploadedPolicies = (policiesResult.rows || []).map(p => {
+      const score = p.maturity_score !== null && p.maturity_score !== undefined 
+        ? Math.round((p.maturity_score / 5) * 100) 
+        : 100; // default to 100% compliance if fully approved or fallback
+      return {
+        id: p.id,
+        filename: p.filename,
+        control_id: p.question_id || 'N/A',
+        control_name: p.control_name || 'General Governance Requirement',
+        domain: p.domain || 'Security & Compliance',
+        score: score,
+        uploaded_at: p.uploaded_at,
+        file_size: p.file_size
+      };
+    });
+
+    // 8c. Fetch GRC Policy Governance Hub policies for the organization
+    logger.info(`Fetching policies for org_id: ${assessment.org_id}`);
+    
+    if (!assessment.org_id) {
+      logger.warn(`Assessment ${assessmentId} has no org_id, policies will not be fetched`);
+      var policyHubDocuments = [];
+    } else {
+      let policyHubResult;
+      try {
+        policyHubResult = await query(
+          `SELECT id, policy_name, policy_type, file_url, status, compliance_score, ai_analysis_report, created_at
+           FROM policies
+           WHERE org_id = $1 AND assessment_id = $2
+           ORDER BY created_at DESC`,
+          [assessment.org_id, assessmentId]
+        );
+        logger.info(`Found ${policyHubResult.rowCount || 0} policies for org_id ${assessment.org_id} and assessment ${assessmentId}`);
+      } catch (err) {
+        logger.error(`Error fetching GRC Policy Hub documents for org_id ${assessment.org_id}:`, err.message);
+        policyHubResult = { rows: [] };
+      }
+
+      const uniquePolicies = [];
+      const seenNames = new Set();
+      (policyHubResult.rows || []).forEach(p => {
+        if (!seenNames.has(p.policy_name)) {
+          seenNames.add(p.policy_name);
+          uniquePolicies.push(p);
+        }
+      });
+
+      var policyHubDocuments = uniquePolicies.map(p => {
+        const report = p.ai_analysis_report || {};
+        const gaps = Array.isArray(report.gaps) ? report.gaps : [];
+        const recommendations = Array.isArray(report.recommendations) ? report.recommendations : [];
+        const score = p.compliance_score !== null && p.compliance_score !== undefined 
+          ? parseFloat(p.compliance_score) 
+          : 100.0;
+        const isAutoFixed = score === 98.4 || (report.is_auto_fixed === true);
+
+        return {
+          id: p.id,
+          policy_name: p.policy_name,
+          policy_type: p.policy_type,
+          status: p.status,
+          compliance_score: score,
+          gaps: gaps.map(g => ({
+            title: g.gap_title || g.title || 'Requirement Gap',
+            description: g.description || 'Missing or incomplete policy clause.',
+            priority: g.priority || 'Medium',
+            remediation_plan: g.remediation_plan || ''
+          })),
+          recommendations: recommendations.map(r => 
+            typeof r === 'string' ? r : (r.title || r.description || r)
+          ),
+          auto_fixed: isAutoFixed,
+          created_at: p.created_at
+        };
       });
     }
 
@@ -106,6 +208,7 @@ class ReportingService {
         })),
         risk_priorities: {},
         evidence_total: evidenceCount,
+        compliance_score: scoreData.overall_score,
       };
 
       const fastapiResponse = await axios.post(`${FASTAPI_URL}/analysis/generate-report`, analysisRequest, {
@@ -115,7 +218,7 @@ class ReportingService {
           'X-Internal-Service': 'grc-gateway'
         }
       });
-      return this.mergeReportData(fastapiResponse.data, scoreData, domainBreakdown, gapData, financialSummary, assessmentType, insuranceReadiness);
+      return this.mergeReportData(fastapiResponse.data, scoreData, domainBreakdown, gapData, financialSummary, assessmentType, insuranceReadiness, uploadedPolicies, policyHubDocuments);
     } catch (apiErr) {
       logger.error('FastAPI report generation failed, using heuristic fallback:', apiErr.message);
 
@@ -145,6 +248,8 @@ class ReportingService {
         financial_summary: financialSummary,
         insurance_readiness: insuranceReadiness,
         recommendations: this.generateRecommendations(responses, domainBreakdown, assessmentType),
+        uploaded_policies: uploadedPolicies,
+        policy_hub_documents: policyHubDocuments,
       };
     }
   }
@@ -319,9 +424,10 @@ class ReportingService {
   /**
    * Merge FastAPI response with calculated data.
    */
-  mergeReportData(fastapiData, scoreData, domainBreakdown, gapData, financialSummary, assessmentType, insuranceData) {
+  mergeReportData(fastapiData, scoreData, domainBreakdown, gapData, financialSummary, assessmentType, insuranceData, uploadedPolicies, policyHubDocuments) {
     return {
       ...fastapiData,
+      compliance_score: scoreData.overall_score,
       report_metadata: {
         ...(fastapiData.report_metadata || {}),
         assessment_type: assessmentType,
@@ -335,6 +441,8 @@ class ReportingService {
       gap_analysis: gapData,
       financial_summary: financialSummary,
       insurance_readiness: insuranceData,
+      uploaded_policies: uploadedPolicies,
+      policy_hub_documents: policyHubDocuments,
     };
   }
 
@@ -375,15 +483,16 @@ class ReportingService {
    * Calculate financial implications of the current gaps.
    */
   calculateFinancialSummary(gaps) {
-    const missingCost = gaps.summary.missing_count * 150000;
-    const partialCost = gaps.summary.partial_count * 50000;
-    const total = missingCost + partialCost;
+    // Costs in USD base (assuming roughly 150000 INR -> ~1775 USD, 50000 INR -> ~591 USD)
+    const missingCostUsd = gaps.summary.missing_count * 1775;
+    const partialCostUsd = gaps.summary.partial_count * 591;
+    const totalUsd = missingCostUsd + partialCostUsd;
 
     return {
-      total_estimated_inr: total,
-      critical_remediation_inr: missingCost,
-      currency: 'INR',
-      effort_level: total > 1000000 ? 'High' : total > 300000 ? 'Medium' : 'Low',
+      total_estimated_usd: totalUsd,
+      critical_remediation_usd: missingCostUsd,
+      currency: 'USD',
+      effort_level: totalUsd > 12000 ? 'High' : totalUsd > 3500 ? 'Medium' : 'Low',
     };
   }
 

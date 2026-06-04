@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { runComplianceAgent } from '../api';
+import { runComplianceAgent, getCurrentUser } from '../api';
 import { 
   Shield, 
   FileSearch, 
@@ -32,6 +32,8 @@ import {
 
 const ComplianceAgent = () => {
   const navigate = useNavigate();
+  const user = getCurrentUser();
+  const isTeamMember = user?.role === 'team_member';
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -81,6 +83,7 @@ const ComplianceAgent = () => {
   }, [loading]);
 
   const handleFileChange = (e) => {
+    if (isTeamMember) return;
     setFile(e.target.files[0]);
     setResult(null);
     setError(null);
@@ -88,7 +91,7 @@ const ComplianceAgent = () => {
 
   const handleDragOver = (e) => {
     e.preventDefault();
-    setIsDragOver(true);
+    if (!isTeamMember) setIsDragOver(true);
   };
 
   const handleDragLeave = () => {
@@ -98,6 +101,7 @@ const ComplianceAgent = () => {
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragOver(false);
+    if (isTeamMember) return;
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setFile(e.dataTransfer.files[0]);
       setResult(null);
@@ -106,6 +110,7 @@ const ComplianceAgent = () => {
   };
 
   const handleRunAgent = async () => {
+    if (isTeamMember) return;
     if (!file) {
       setError("Please select a policy document first.");
       return;
@@ -685,9 +690,9 @@ const ComplianceAgent = () => {
               borderRadius: '14px', 
               border: `1px solid ${theme.border}` 
             }}>
-              <TabButton active={activeTab === 'all'} onClick={() => setActiveTab('all')} label="All Controls" icon={<LayoutGrid size={16} />} count={result.controls_found?.length || 0} theme={theme} />
-              <TabButton active={activeTab === 'matched'} onClick={() => setActiveTab('matched')} label="Strong Matches" icon={<CheckCircle size={16} />} count={result.controls_found?.filter(c => c.confidence_score >= 0.75).length || 0} theme={theme} />
-              <TabButton active={activeTab === 'gaps'} onClick={() => setActiveTab('gaps')} label="Partial / Gaps" icon={<AlertTriangle size={16} />} count={result.controls_found?.filter(c => c.confidence_score < 0.75).length || 0} theme={theme} />
+              <TabButton active={activeTab === 'all'} onClick={() => setActiveTab('all')} label="All Controls" icon={<LayoutGrid size={16} />} count={result.controls_found?.filter(c => selectedFramework === 'all' || c.mapped_framework === selectedFramework).length || 0} theme={theme} />
+              <TabButton active={activeTab === 'matched'} onClick={() => setActiveTab('matched')} label="Strong Matches" icon={<CheckCircle size={16} />} count={result.controls_found?.filter(c => (selectedFramework === 'all' || c.mapped_framework === selectedFramework) && c.confidence_score >= 0.75).length || 0} theme={theme} />
+              <TabButton active={activeTab === 'gaps'} onClick={() => setActiveTab('gaps')} label="Partial / Gaps" icon={<AlertTriangle size={16} />} count={result.controls_found?.filter(c => (selectedFramework === 'all' || c.mapped_framework === selectedFramework) && c.confidence_score < 0.75).length || 0} theme={theme} />
             </div>
 
             <div style={{ position: 'relative', width: '380px', maxWidth: '100%' }}>

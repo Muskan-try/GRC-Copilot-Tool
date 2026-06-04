@@ -40,77 +40,80 @@ router.post(
 
     const { name, industry, region, employee_range, contact_name, frameworks, analysis_depth, assessment_type } = req.body;
 
-      // Upsert organization (update if exists for this user)
-      const result = await query(
-        `INSERT INTO organizations (user_id, name, industry, region, employee_range, contact_name, frameworks, analysis_depth)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         ON CONFLICT DO NOTHING
-         RETURNING id`,
-        [req.user.user_id, name, industry || null, region || null, employee_range || null, contact_name || null, frameworks, analysis_depth]
+      // Find if the user is already in an organization
+      const memberCheck = await query(
+        `SELECT org_id FROM org_members WHERE user_id = $1 AND status = 'active' LIMIT 1`,
+        [req.user.user_id]
       );
 
       let org_id;
-      if (result.rows.length) {
-        org_id = result.rows[0].id;
-      } else {
-        // Update existing
-        const updateResult = await query(
+      if (memberCheck.rows.length > 0) {
+        org_id = memberCheck.rows[0].org_id;
+        
+        // Update the existing org (we do not change name to prevent unique constraint errors)
+        await query(
           `UPDATE organizations
-           SET name=$1, industry=$2, region=$3, employee_range=$4,
-               contact_name=$5, frameworks=$6, analysis_depth=$7, updated_at=NOW()
-           WHERE user_id=$8
-           RETURNING id`,
-          [name, industry, region, employee_range, contact_name || null, frameworks, analysis_depth, req.user.user_id]
+           SET industry=COALESCE($1, industry), region=COALESCE($2, region), employee_range=COALESCE($3, employee_range),
+               contact_name=COALESCE($4, contact_name), frameworks=$5, analysis_depth=$6, updated_at=NOW()
+           WHERE id=$7`,
+          [industry, region, employee_range, contact_name || null, frameworks, analysis_depth, org_id]
         );
-        org_id = updateResult.rows[0].id;
+      } else {
+        // Upsert organization (update if exists for this user)
+        const result = await query(
+          `INSERT INTO organizations (user_id, name, industry, region, employee_range, contact_name, frameworks, analysis_depth)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           ON CONFLICT DO NOTHING
+           RETURNING id`,
+          [req.user.user_id, name, industry || null, region || null, employee_range || null, contact_name || null, frameworks, analysis_depth]
+        );
+
+        if (result.rows.length) {
+          org_id = result.rows[0].id;
+        } else {
+          // If conflict on name, get that org
+          const existing = await query(`SELECT id FROM organizations WHERE name = $1`, [name]);
+          org_id = existing.rows[0].id;
+        }
+
+        // Add creator as org_member with owner role if not already there
+        await query(
+          `INSERT INTO org_members (org_id, user_id, role, status, invited_by)
+           VALUES ($1, $2, 'owner', 'active', $2)
+           ON CONFLICT (org_id, user_id) DO NOTHING`,
+          [org_id, req.user.user_id]
+        );
       }
 
-      // Add creator as org_member with owner role if not already there
-      await query(
-        `INSERT INTO org_members (org_id, user_id, role, status, invited_by)
-         VALUES ($1, $2, 'owner', 'active', $2)
-         ON CONFLICT (org_id, user_id) DO NOTHING`,
+      // Create or reuse setup assessment
+      let setupAssessmentId;
+      const existingSetup = await query(
+        `SELECT id FROM assessments WHERE org_id = $1 AND user_id = $2 AND status = 'setup' LIMIT 1`,
         [org_id, req.user.user_id]
       );
 
-      // Create new assessment session
-      const primaryFramework = frameworks[0];
-      const assessType = assessment_type || 'compliance_assessment';
-      const assessResult = await query(
-        `INSERT INTO assessments (org_id, user_id, framework, analysis_depth, assessment_type, status)
-         VALUES ($1, $2, $3, $4, $5, 'in_progress')
-         RETURNING id, created_at`,
-        [org_id, req.user.user_id, primaryFramework, analysis_depth, assessType]
-      );
-
-      const assessmentId = assessResult.rows[0].id;
-
-      // Link frameworks to assessment
-      for (const fwName of frameworks) {
-        const fwResult = await query(
-          'SELECT id FROM frameworks WHERE name = $1',
-          [fwName]
+      if (existingSetup.rows.length > 0) {
+        setupAssessmentId = existingSetup.rows[0].id;
+        // Optionally update it
+        await query(
+          `UPDATE assessments SET framework = $1, assessment_type = $2, analysis_depth = $3, updated_at = NOW() WHERE id = $4`,
+          [frameworks[0] || 'ISO/IEC 27001:2022', req.body.assessment_type || 'compliance_assessment', analysis_depth || 'quick', setupAssessmentId]
         );
-        if (fwResult.rows.length > 0) {
-          await query(
-            `INSERT INTO assessment_frameworks (assessment_id, framework_id)
-             VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-            [assessmentId, fwResult.rows[0].id]
-          );
-        }
+      } else {
+        setupAssessmentId = require('uuid').v4();
+        await query(
+          `INSERT INTO assessments (id, org_id, user_id, framework, status, assessment_type, analysis_depth)
+           VALUES ($1, $2, $3, $4, 'setup', $5, $6)`,
+          [setupAssessmentId, org_id, req.user.user_id, frameworks[0] || 'ISO/IEC 27001:2022', req.body.assessment_type || 'compliance_assessment', analysis_depth || 'quick']
+        );
       }
 
       logger.info(`Organization setup for user ${req.user.user_id}: ${name}`);
       audit.log(req.user.user_id, audit.AUDIT_ACTIONS.ORG_CREATE, 'organization', null, { name, frameworks: req.body.frameworks }, req).catch(() => {});
       res.status(201).json({
         org_id,
-        id: assessmentId,
-        assessment_id: assessmentId,
-        framework: primaryFramework,
-        all_frameworks: frameworks,
-        analysis_depth,
-        status: 'configured',
-        created_at: assessResult.rows[0].created_at,
+        assessment_id: setupAssessmentId,
+        status: 'configured'
       });
     } catch (err) {
       next(err);
@@ -127,7 +130,12 @@ router.get('/:id', authenticate, async (req, res, next) => {
       `SELECT o.*, u.email AS owner_email
        FROM organizations o
        JOIN users u ON u.id = o.user_id
-       WHERE o.id = $1 AND o.user_id = $2`,
+       WHERE o.id = $1 
+         AND (
+           o.user_id = $2
+           OR (SELECT role FROM users WHERE id = $2) = 'admin'
+           OR o.id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active')
+         )`,
       [id, req.user.user_id]
     );
 
@@ -167,7 +175,10 @@ router.get('/', authenticate, async (req, res, next) => {
   try {
     const result = await query(
       `SELECT id, name, industry, region, frameworks, analysis_depth, created_at
-       FROM organizations WHERE user_id = $1 ORDER BY created_at DESC`,
+       FROM organizations 
+       WHERE user_id = $1 
+          OR id IN (SELECT org_id FROM org_members WHERE user_id = $1 AND status = 'active')
+       ORDER BY created_at DESC`,
       [req.user.user_id]
     );
     res.json({ organizations: result.rows, total: result.rowCount });
@@ -192,7 +203,18 @@ router.put('/:id', authenticate, async (req, res, next) => {
            frameworks=COALESCE($6, frameworks),
            analysis_depth=COALESCE($7, analysis_depth),
            updated_at=NOW()
-       WHERE id=$8 AND user_id=$9
+       WHERE id=$8 
+         AND (
+           user_id=$9
+           OR (SELECT role FROM users WHERE id = $9) = 'admin'
+           OR id IN (
+             SELECT org_id 
+             FROM org_members 
+             WHERE user_id = $9 
+               AND status = 'active' 
+               AND role IN ('owner', 'admin', 'org_admin', 'team_lead')
+           )
+         )
        RETURNING *`,
       [name, industry, region, employee_range, contact_name, frameworks, analysis_depth, id, req.user.user_id]
     );

@@ -7,6 +7,22 @@ const gapAnalysisService = require('./gap_analysis.service');
 const { AssessmentResponse, EvidenceFile } = require('../../../config/mongo');
 
 /**
+ * Helper to calculate implementation progress against standard framework baselines
+ */
+function calculateProgressRate(auditedItems, framework) {
+  const FRAMEWORK_BASELINES = {
+    "ISO 27001:2022": 114,
+    "SOC 2": 64,
+    "GDPR": 99,
+    "DPDPA": 45,
+    "NIST CSF": 108
+  };
+  const baseline = FRAMEWORK_BASELINES[framework] || (auditedItems > 0 ? auditedItems : 100);
+  if (baseline === 0) return 0.0;
+  return Number(((auditedItems / baseline) * 100).toFixed(1));
+}
+
+/**
  * Dashboard Service v2
  * Aggregates assessment data with MongoDB-primary reads.
  */
@@ -136,7 +152,7 @@ class DashboardService {
         compliance_percentage: scores.overall_score,
         total_risks: risks.length,
         total_gaps: gaps.summary.missing_count + gaps.summary.partial_count,
-        progress: assessment.total_questions > 0 ? (assessment.answered_questions / assessment.total_questions) * 100 : 0,
+        progress: calculateProgressRate(assessment.answered_questions || 0, assessment.framework),
       },
       risk_chart: {
         distribution: riskDistribution,

@@ -36,10 +36,39 @@ const authenticate = async (req, res, next) => {
       return res.status(401).json({ error: 'User not found or account deactivated.' });
     }
 
+    let orgId = null;
+    let memberRole = null;
+    try {
+      const orgRes = await query(
+        "SELECT org_id, role FROM org_members WHERE user_id = $1 AND status = 'active' LIMIT 1",
+        [userRecord.id]
+      );
+      if (orgRes.rows.length) {
+        orgId = orgRes.rows[0].org_id;
+        memberRole = orgRes.rows[0].role;
+      } else {
+        const ownerRes = await query(
+          'SELECT id FROM organizations WHERE user_id = $1 LIMIT 1',
+          [userRecord.id]
+        );
+        if (ownerRes.rows.length) {
+          orgId = ownerRes.rows[0].id;
+          memberRole = 'org_admin'; // Default fallback role for creators
+        }
+      }
+    } catch (dbErr) {
+      logger.error('Failed to dynamically fetch org_id and role in auth middleware, falling back to JWT decoded:', dbErr.message);
+    }
+
+    if (!orgId) {
+      orgId = decoded.org_id || null;
+    }
+
     req.user = {
       user_id: userRecord.id,
       email: userRecord.email,
-      role: userRecord.role,
+      role: userRecord.role === 'admin' ? 'admin' : (memberRole || userRecord.role),
+      org_id: orgId
     };
 
     next();

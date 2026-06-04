@@ -19,19 +19,48 @@ class AssessmentService {
 
     // 1. Find or create organization for this user
     let orgId;
-    const orgResult = await query(
-      'SELECT id FROM organizations WHERE name = $1 AND user_id = $2',
+    
+    // First, check if the user is already an active member of the organization
+    const memberCheck = await query(
+      `SELECT o.id FROM organizations o
+       JOIN org_members om ON o.id = om.org_id
+       WHERE o.name = $1 AND om.user_id = $2 AND om.status = 'active'
+       LIMIT 1`,
       [organizationName, userId]
     );
 
-    if (orgResult.rows.length > 0) {
-      orgId = orgResult.rows[0].id;
+    if (memberCheck.rows.length > 0) {
+      orgId = memberCheck.rows[0].id;
     } else {
-      const newOrg = await query(
-        'INSERT INTO organizations (name, user_id, region, employee_range) VALUES ($1, $2, $3, $4) RETURNING id',
-        [organizationName, userId, scope.region || null, scope.employee_range || null]
-      );
-      orgId = newOrg.rows[0].id;
+      // If not a member, try to create the organization
+      try {
+        const newOrg = await query(
+          'INSERT INTO organizations (name, user_id, region, employee_range) VALUES ($1, $2, $3, $4) RETURNING id',
+          [organizationName, userId, scope.region || null, scope.employee_range || null]
+        );
+        orgId = newOrg.rows[0].id;
+      } catch (err) {
+        // Handle unique constraint on organization name
+        if (err.code === '23505') {
+          // Find the existing org to return a better error, or add them if they should be added
+          // Typically if name exists, they must be invited.
+          throw new Error('Organization name already exists and you are not a member.');
+        }
+        throw err;
+      }
+      
+      // Add user as org_admin to org_members if organization is newly created
+      try {
+        await query(
+          `INSERT INTO org_members (org_id, user_id, role, status, invited_by)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT DO NOTHING`,
+          [orgId, userId, 'org_admin', 'active', userId]
+        );
+        logger.info(`Added user ${userId} as org_admin to organization ${orgId}`);
+      } catch (e) {
+        logger.warn(`Failed to add user to org_members: ${e.message}`);
+      }
     }
 
     // 2. Resolve framework IDs from names
@@ -77,7 +106,19 @@ class AssessmentService {
        SET status = 'complete', 
            completed_at = NOW(), 
            updated_at = NOW() 
-       WHERE id = $1 AND user_id = $2 AND status != 'complete'
+       WHERE id = $1 
+         AND status != 'complete'
+         AND (
+           user_id = $2 
+           OR (SELECT role FROM users WHERE id = $2) = 'admin'
+           OR org_id IN (
+             SELECT org_id 
+             FROM org_members 
+             WHERE user_id = $2 
+               AND status = 'active' 
+               AND role IN ('owner', 'admin', 'org_admin', 'team_lead')
+           )
+         )
        RETURNING *`,
       [assessmentId, userId]
     );
@@ -94,7 +135,11 @@ class AssessmentService {
       `SELECT a.*, o.name as organization_name
        FROM assessments a
        JOIN organizations o ON a.org_id = o.id
-       WHERE a.id = $1 AND a.org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active')`,
+       WHERE a.id = $1 
+         AND (
+           (SELECT role FROM users WHERE id = $2) = 'admin'
+           OR a.org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active')
+         )`,
       [assessmentId, userId]
     );
 
@@ -164,11 +209,27 @@ class AssessmentService {
     }
 
     fields.push(`updated_at = NOW()`);
+    const assessIdIdx = idx++;
     values.push(assessmentId);
+    const userIdIdx = idx++;
     values.push(userId);
 
     const result = await query(
-      `UPDATE assessments SET ${fields.join(', ')} WHERE id = $${idx++} AND user_id = $${idx++} RETURNING *`,
+      `UPDATE assessments 
+       SET ${fields.join(', ')} 
+       WHERE id = $${assessIdIdx} 
+         AND (
+           user_id = $${userIdIdx} 
+           OR (SELECT role FROM users WHERE id = $${userIdIdx}) = 'admin'
+           OR org_id IN (
+             SELECT org_id 
+             FROM org_members 
+             WHERE user_id = $${userIdIdx} 
+               AND status = 'active' 
+               AND role IN ('owner', 'admin', 'org_admin', 'team_lead')
+           )
+         )
+       RETURNING *`,
       values
     );
 
@@ -205,9 +266,21 @@ class AssessmentService {
     async addFrameworks(assessmentId, userId, frameworkNames) {
     logger.info(`Adding frameworks to assessment ${assessmentId}: ${frameworkNames.join(', ')}`);
 
-    // 1. Verify ownership
+    // 1. Verify ownership/authorization
     const assessResult = await query(
-      'SELECT id FROM assessments WHERE id = $1 AND user_id = $2',
+      `SELECT id FROM assessments 
+       WHERE id = $1 
+         AND (
+           user_id = $2 
+           OR (SELECT role FROM users WHERE id = $2) = 'admin'
+           OR org_id IN (
+             SELECT org_id 
+             FROM org_members 
+             WHERE user_id = $2 
+               AND status = 'active' 
+               AND role IN ('owner', 'admin', 'org_admin', 'team_lead')
+           )
+         )`,
       [assessmentId, userId]
     );
     if (assessResult.rows.length === 0) throw new Error('Assessment not found or unauthorized');
@@ -231,6 +304,33 @@ class AssessmentService {
       added_count: addedCount
     };
     }
-    }
+
+  /**
+   * Delete an assessment.
+   * @param {string} assessmentId 
+   * @param {string} userId 
+   */
+  async deleteAssessment(assessmentId, userId) {
+    logger.info(`Deleting assessment ${assessmentId} by user ${userId}`);
+    const result = await query(
+      `DELETE FROM assessments 
+       WHERE id = $1 
+         AND (
+           user_id = $2 
+           OR (SELECT role FROM users WHERE id = $2) = 'admin'
+           OR org_id IN (
+             SELECT org_id 
+             FROM org_members 
+             WHERE user_id = $2 
+               AND status = 'active' 
+               AND role IN ('owner', 'admin', 'org_admin', 'team_lead')
+           )
+         )
+       RETURNING *`,
+      [assessmentId, userId]
+    );
+    return result.rows[0];
+  }
+}
 
 module.exports = new AssessmentService();

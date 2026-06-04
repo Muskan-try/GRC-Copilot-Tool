@@ -84,13 +84,19 @@ class RiskService {
       if (controlGap > 0.2) {
         const impactMap = { 'high': 5, 'medium': 3, 'low': 2 };
         const impact = impactMap[ctrl.priority?.toLowerCase()] || 3;
-        const likelihood = 3;
-        const riskScore = impact * likelihood * controlGap;
+        
+        let likelihood = 1;
+        if (controlGap > 0.8) likelihood = 5;
+        else if (controlGap > 0.6) likelihood = 4;
+        else if (controlGap > 0.4) likelihood = 3;
+        else if (controlGap > 0.2) likelihood = 2;
+
+        const riskScore = impact * likelihood;
 
         let severity = 'low';
-        if (riskScore > 12) severity = 'critical';
-        else if (riskScore > 8) severity = 'high';
-        else if (riskScore > 4) severity = 'medium';
+        if (riskScore >= 15) severity = 'critical';
+        else if (riskScore >= 8) severity = 'high';
+        else if (riskScore >= 4) severity = 'medium';
 
         const riskEntry = {
           assessment_id: assessmentId,

@@ -8,7 +8,7 @@ from typing import Any, List, Dict
 from loguru import logger
 
 # Answer index → score mapping
-ANSWER_SCORES = {0: 100.0, 1: 65.0, 2: 30.0, 3: 0.0}
+ANSWER_SCORES = {0: 100.0, 1: 60.0, 2: 40.0, 3: 0.0}
 ANSWER_LABELS = {0: "Implemented", 1: "Partial", 2: "Draft", 3: "Missing"}
 
 class AuditReportEngine:
@@ -26,7 +26,11 @@ class AuditReportEngine:
             return self._empty_analysis(framework, org_name)
 
         # 1. Precise Scoring
-        overall_score = self._compute_overall_score(responses)
+        overall_score = data.get("compliance_score")
+        if overall_score is None:
+            overall_score = self._compute_overall_score(responses)
+        else:
+            overall_score = round(float(overall_score), 1)
         domain_scores = self._compute_domain_scores(responses)
         
         # 2. Traceable Risk Assessment
@@ -106,12 +110,17 @@ class AuditReportEngine:
             if idx >= 1: # Partial, Draft, or Missing
                 # Severity derived from answer + weight
                 severity = "critical" if idx == 3 else "high" if idx == 2 else "medium"
+                likelihood = 4 if idx == 3 else 3 if idx == 2 else 2
+                impact = 5 if r.get("critical") else 3
                 
                 risks.append({
                     "response_ref": r["question_id"],
-                    "title": f"Risk identified in {r.get('category')}",
+                    "title": f"Risk identified in {r.get('category', 'General')}",
+                    "category": r.get("category", "General"),
                     "description": f"The response '{r.get('answer_text', ANSWER_LABELS[idx])}' for control '{r.get('text')}' indicates a deficiency.",
                     "severity": severity,
+                    "likelihood": likelihood,
+                    "impact": impact,
                     "justification": f"Directly based on response index {idx} with weight {r.get('weight', 1.0)}."
                 })
                 distribution[severity] += 1
@@ -174,14 +183,19 @@ class AuditReportEngine:
             idx = r["answer_index"]
             if idx >= 1:
                 # Use the hint from the question bank as the basis for the recommendation
-                base_action = r.get("hint", f"Implement control for {r.get('category')}")
+                base_action = r.get("hint", f"Implement control for {r.get('category', 'General')}")
+                priority = "Critical" if idx == 3 else "High" if idx == 2 else "Medium"
                 recommendations.append({
                     "control_ref": r["question_id"],
-                    "priority": "Critical" if idx == 3 else "High" if idx == 2 else "Medium",
+                    "priority": priority,
+                    "remediation_priority": priority,
+                    "impact_domain": r.get("category", "General"),
+                    "issue": f"Control gap identified in: {r.get('text', r['question_id'])}",
+                    "suggested_fix": base_action,
                     "remediation_action": base_action,
                     "cost_estimate_inr": 50000 if idx == 3 else 20000
                 })
-        return sorted(recommendations, key=lambda x: (x["priority"] == "Critical", x["priority"] == "High"), reverse=True)
+        return sorted(recommendations, key=lambda x: (x["remediation_priority"] == "Critical", x["remediation_priority"] == "High"), reverse=True)
 
     def _calculate_costs(self, recommendations: List[Dict]) -> Dict:
         total = sum(r["cost_estimate_inr"] for r in recommendations)

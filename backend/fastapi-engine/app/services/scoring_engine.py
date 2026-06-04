@@ -71,16 +71,28 @@ def build_risk_analysis(responses: list[dict], risk_priorities: dict, overall_sc
 
     for r in responses:
         idx = r["answer_index"]
-        if idx >= 2:  # Draft or Missing → create risk entry
-            severity = "critical" if idx == 3 else "high" if ANSWER_SCORES.get(idx, 0) < 50 else "medium"
+        if idx >= 1:  # Partial, Draft or Missing → create risk entry
+            if idx == 3:
+                severity = "critical"
+                likelihood = 4
+                impact = 4
+            elif idx == 2:
+                severity = "high"
+                likelihood = 3
+                impact = 3
+            else:  # idx == 1 (Partial)
+                severity = "medium"
+                likelihood = 2
+                impact = 2
+
             user_pri = risk_priorities.get(r["question_id"], "medium")
 
             risk_entry = {
                 "id": r["question_id"],
                 "title": f"Risk in {r.get('category', 'General')}",
                 "category": r.get("category", "General"),
-                "likelihood": 3 if idx == 3 else 2,
-                "impact": 4 if idx == 3 else 3,
+                "likelihood": likelihood,
+                "impact": impact,
                 "severity": severity,
                 "mitigation": f"Address gap in {r.get('category', 'control area')}.",
                 "user_priority": user_pri,
@@ -132,6 +144,9 @@ def build_controls_mapping(responses: list[dict], evidence_total: int) -> list[d
         })
     return controls
 
+def convertUSDToINR(usd_amount: float) -> int:
+    """Global runtime helper to convert USD to INR dynamically."""
+    return int(usd_amount * 84.5)
 
 def build_recommendations(responses: list[dict], domain_scores: list[dict]) -> list[dict]:
     """Generate prioritized recommendations."""
@@ -154,7 +169,7 @@ def build_recommendations(responses: list[dict], domain_scores: list[dict]) -> l
                 "horizon": "short",
                 "priority": "critical",
                 "base_cost_usd": 600 + (40 - score) * 25,
-                "cost_inr": 50000 + (40 - score) * 2000,
+                "cost_inr": convertUSDToINR(600 + (40 - score) * 25),
                 "effort": "high",
             })
             short_count += 1
@@ -165,7 +180,7 @@ def build_recommendations(responses: list[dict], domain_scores: list[dict]) -> l
                 "horizon": "mid",
                 "priority": "high",
                 "base_cost_usd": 350 + (65 - score) * 20,
-                "cost_inr": 30000 + (65 - score) * 1500,
+                "cost_inr": convertUSDToINR(350 + (65 - score) * 20),
                 "effort": "medium",
             })
             mid_count += 1
@@ -176,7 +191,7 @@ def build_recommendations(responses: list[dict], domain_scores: list[dict]) -> l
                 "horizon": "long",
                 "priority": "medium",
                 "base_cost_usd": 180 + (85 - score) * 12,
-                "cost_inr": 15000 + (85 - score) * 1000,
+                "cost_inr": convertUSDToINR(180 + (85 - score) * 12),
                 "effort": "low",
             })
             long_count += 1
@@ -225,6 +240,12 @@ def build_cost_summary(recommendations: list[dict], gap_analysis: list[dict]) ->
     }
 
 
+def calculate_progress_rate(audited_items: int, baseline_count: int) -> float:
+    """Calculate the overall framework implementation progress percentage."""
+    if baseline_count == 0:
+        return 0.0
+    return round((audited_items / baseline_count) * 100, 1)
+
 def build_executive_summary(overall_score: float, risk_level: str, framework: str, org_name: str,
                             gap_count: int, total_questions: int) -> str:
     """Generate executive summary text."""
@@ -262,6 +283,18 @@ def run_full_analysis(data: dict) -> dict[str, Any]:
     gap_count = len(gap_analysis)
     total_questions = len(responses)
 
+    # Standard baseline counts for implementation progress
+    FRAMEWORK_BASELINES = {
+        "ISO 27001:2022": 114,
+        "SOC 2": 64,
+        "GDPR": 99,
+        "DPDPA": 45,
+        "NIST CSF": 108
+    }
+    
+    baseline = FRAMEWORK_BASELINES.get(framework, total_questions if total_questions > 0 else 100)
+    progress_rate = calculate_progress_rate(total_questions, baseline)
+
     executive_summary = build_executive_summary(
         overall_score, risk_level, framework, org_name, gap_count, total_questions
     )
@@ -278,4 +311,5 @@ def run_full_analysis(data: dict) -> dict[str, Any]:
         "cost_summary": cost_summary,
         "framework": framework,
         "organization": org_name,
+        "progress_rate": progress_rate,
     }

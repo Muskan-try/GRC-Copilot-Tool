@@ -8,10 +8,10 @@ import {
 import { useToast } from "../components/Toast";
 
 const ROLE_OPTIONS = [
-  { value: "admin", label: "Admin", desc: "Can manage members and all assessments", color: "var(--danger)" },
-  { value: "reviewer", label: "Reviewer", desc: "Can review and approve assessments", color: "var(--primary)" },
-  { value: "member", label: "Member", desc: "Can create and complete assessments", color: "var(--info)" },
-  { value: "auditor", label: "Auditor", desc: "Read-only access to all data", color: "var(--text-muted)" },
+  { value: "admin", label: "Super Admin", desc: "Full system control across all organizations", color: "var(--danger)" },
+  { value: "org_admin", label: "Organization Admin", desc: "Manage organization settings and members", color: "var(--primary)" },
+  { value: "team_lead", label: "Team Lead", desc: "Lead assessments and review team responses", color: "var(--info)" },
+  { value: "team_member", label: "Team Member", desc: "Read-only access to compliance data", color: "var(--text-muted)" },
 ];
 
 export default function TeamManagement() {
@@ -25,7 +25,7 @@ export default function TeamManagement() {
   const [pendingReviews, setPendingReviews] = useState([]);
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("member");
+  const [inviteRole, setInviteRole] = useState("team_member");
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async (orgId) => {
@@ -60,7 +60,7 @@ export default function TeamManagement() {
   const handleInvite = async () => {
     if (!inviteEmail || !selectedOrg) return;
     try {
-      const result = await inviteTeamMember(selectedOrg, inviteEmail, inviteRole);
+      await inviteTeamMember(selectedOrg, inviteEmail, inviteRole);
       toast.addToast(`Invitation sent to ${inviteEmail}`, "success");
       setInviteEmail("");
       setShowInvite(false);
@@ -102,8 +102,9 @@ export default function TeamManagement() {
     }
   };
 
-  const currentRole = members.find(m => m.user_id === user?.user_id)?.role || "member";
-  const canManage = currentRole === "owner" || currentRole === "admin";
+  // RBAC logic
+  const canManage = user?.role === "admin" || user?.role === "org_admin";
+  const isTeamMember = user?.role === "team_member";
 
   return (
     <div style={{ padding: "40px 32px", background: "var(--surface-hover)", minHeight: "100vh" }}>
@@ -111,10 +112,10 @@ export default function TeamManagement() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
           <div>
             <h1 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-main)", margin: "0 0 4px 0" }}>
-              Team Management
+              Team Management {isTeamMember && "(Read-Only)"}
             </h1>
             <p style={{ fontSize: "0.9rem", color: "var(--text-muted)", margin: 0 }}>
-              Manage team members, roles, invitations, and review workflows
+              {isTeamMember ? "View team members and assigned roles for your organization" : "Manage team members, roles, invitations, and review workflows"}
             </p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -128,7 +129,7 @@ export default function TeamManagement() {
         </div>
 
         {/* Pending Reviews Banner */}
-        {pendingReviews.length > 0 && (
+        {pendingReviews.length > 0 && !isTeamMember && (
           <div style={{ marginBottom: 24, padding: "16px 20px", background: "var(--primary-bg-subtle)", border: "1px solid #bfdbfe", borderRadius: 10 }}>
             <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--info)", marginBottom: 4 }}>
               📋 {pendingReviews.length} Assessment{pendingReviews.length > 1 ? 's' : ''} Pending Your Review
@@ -182,7 +183,7 @@ export default function TeamManagement() {
                         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                           <select value={m.role} onChange={e => handleRoleChange(m.user_id, e.target.value)}
                             style={{ fontSize: "0.75rem", padding: "4px 6px", borderRadius: 6, border: "1px solid #e2e8f0" }}>
-                            {ROLE_OPTIONS.filter(r => r.value !== "owner").map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                            {ROLE_OPTIONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                           </select>
                           <button onClick={() => handleRemove(m.user_id)}
                             style={{ padding: "4px 8px", fontSize: "0.75rem", color: "var(--danger)", background: "var(--danger-bg)", border: "1px solid #fecaca", borderRadius: 6, cursor: "pointer" }}>
@@ -199,7 +200,7 @@ export default function TeamManagement() {
             {/* Pending Invitations */}
             <div className="card" style={{ padding: 24, borderRadius: 12, maxWidth: "none" }}>
               <h3 style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-main)", margin: "0 0 16px 0" }}>
-                Pending Invitations ({invitations.length})
+                {isTeamMember ? "Active Invitations" : "Pending Invitations"} ({invitations.length})
               </h3>
               {invitations.length === 0 ? (
                 <p style={{ fontSize: "0.85rem", color: "var(--text-light)", textAlign: "center", padding: 20 }}>No pending invitations</p>
@@ -248,7 +249,7 @@ export default function TeamManagement() {
                   style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }} />
                 <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
                   style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: "0.85rem" }}>
-                  {ROLE_OPTIONS.filter(r => r.value !== "owner").map(r => <option key={r.value} value={r.value}>{r.label} — {r.desc}</option>)}
+                  {ROLE_OPTIONS.filter(r => r.value !== "admin" && r.value !== "org_admin").map(r => <option key={r.value} value={r.value}>{r.label} — {r.desc}</option>)}
                 </select>
                 <div style={{ padding: "10px 14px", background: "var(--success-bg)", borderRadius: 8, fontSize: "0.8rem", color: "var(--success)" }}>
                   An invitation link will be generated. Share it with your team member to join this organization.

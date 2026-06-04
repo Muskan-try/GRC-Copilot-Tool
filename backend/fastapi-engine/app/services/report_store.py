@@ -8,9 +8,12 @@ from loguru import logger
 from app.core import database
 
 
+import uuid
+
 async def save_report(report_data: dict) -> str:
     """Save a report to MongoDB and return report_id."""
-    report_id = f"rpt_{report_data.get('assessment_id', 'unknown')}_{int(datetime.utcnow().timestamp())}"
+    unique_suffix = str(uuid.uuid4())[:8]
+    report_id = f"rpt_{report_data.get('assessment_id', 'unknown')}_{int(datetime.utcnow().timestamp())}_{unique_suffix}"
 
     doc = {
         "report_id": report_id,

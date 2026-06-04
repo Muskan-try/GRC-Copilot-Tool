@@ -59,12 +59,20 @@ async function runMigrations() {
       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
       email VARCHAR(255) UNIQUE NOT NULL,
       password_hash VARCHAR(255) NOT NULL,
-      role VARCHAR(50) DEFAULT 'user' CHECK (role IN ('user', 'admin', 'auditor')),
+      role VARCHAR(50) DEFAULT 'team_member' CHECK (role IN ('admin', 'org_admin', 'team_lead', 'team_member')),
       is_active BOOLEAN DEFAULT true,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+
+  // Update existing users role check constraint if needed
+  try {
+    await query(`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check`);
+    await query(`ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'org_admin', 'team_lead', 'team_member'))`);
+  } catch (e) {
+    logger.warn('Failed to update users_role_check constraint:', e.message);
+  }
 
   // Organizations table
   await query(`
@@ -83,6 +91,12 @@ async function runMigrations() {
     )
   `);
 
+  try {
+    await query(`ALTER TABLE organizations DROP CONSTRAINT IF EXISTS organizations_analysis_depth_check`);
+  } catch (e) {
+    logger.warn('Failed to drop organizations_analysis_depth_check constraint:', e.message);
+  }
+
   // Assessments table
   await query(`
     CREATE TABLE IF NOT EXISTS assessments (
@@ -91,7 +105,7 @@ async function runMigrations() {
       user_id UUID NOT NULL REFERENCES users(id),
       framework VARCHAR(100) NOT NULL,
       analysis_depth VARCHAR(50) NOT NULL,
-      status VARCHAR(50) DEFAULT 'in_progress' CHECK (status IN ('initialized', 'in_progress', 'submitted', 'analyzing', 'complete', 'failed')),
+      status VARCHAR(50) DEFAULT 'in_progress' CHECK (status IN ('setup', 'initialized', 'in_progress', 'submitted', 'analyzing', 'complete', 'failed')),
       compliance_score DECIMAL(5,2),
       risk_level VARCHAR(50),
       total_questions INTEGER DEFAULT 0,
@@ -108,7 +122,7 @@ async function runMigrations() {
   try {
     await query(`ALTER TABLE assessments ADD COLUMN IF NOT EXISTS scope JSONB DEFAULT '{}'`);
     await query(`ALTER TABLE assessments DROP CONSTRAINT IF EXISTS assessments_status_check`);
-    await query(`ALTER TABLE assessments ADD CONSTRAINT assessments_status_check CHECK (status IN ('initialized', 'in_progress', 'submitted', 'analyzing', 'complete', 'failed'))`);
+    await query(`ALTER TABLE assessments ADD CONSTRAINT assessments_status_check CHECK (status IN ('setup', 'initialized', 'in_progress', 'submitted', 'analyzing', 'complete', 'failed'))`);
   } catch (e) {
     // Ignore if already exists and syntax is not supported in some PG versions
   }
@@ -319,14 +333,22 @@ async function runMigrations() {
       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
       org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
       user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      role VARCHAR(50) NOT NULL DEFAULT 'member'
-          CHECK (role IN ('owner', 'admin', 'member', 'auditor', 'reviewer')),
+      role VARCHAR(50) NOT NULL DEFAULT 'team_member'
+          CHECK (role IN ('owner', 'admin', 'org_admin', 'team_lead', 'team_member')),
       status VARCHAR(50) NOT NULL DEFAULT 'active'
           CHECK (status IN ('active', 'invited', 'suspended')),
       invited_by UUID REFERENCES users(id),
       created_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(org_id, user_id)
     )`);
+
+  // Update existing org_members role check constraint if needed
+  try {
+    await query(`ALTER TABLE org_members DROP CONSTRAINT IF EXISTS org_members_role_check`);
+    await query(`ALTER TABLE org_members ADD CONSTRAINT org_members_role_check CHECK (role IN ('owner', 'admin', 'org_admin', 'team_lead', 'team_member'))`);
+  } catch (e) {
+    logger.warn('Failed to update org_members_role_check constraint:', e.message);
+  }
 
   await query(`CREATE INDEX IF NOT EXISTS idx_org_members_org ON org_members(org_id)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_org_members_user ON org_members(user_id)`);
@@ -468,7 +490,47 @@ async function runMigrations() {
   await query(`CREATE INDEX IF NOT EXISTS idx_risks_assessment_id ON risks(assessment_id)`);
   await query(`CREATE INDEX IF NOT EXISTS idx_risks_control_id ON risks(control_id)`);
 
+  // --- POLICIES TABLE FOR POLICY GOVERNANCE HUB ---
+  await query(`CREATE TABLE IF NOT EXISTS policies (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      org_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      policy_name VARCHAR(255) NOT NULL,
+      policy_type VARCHAR(50) NOT NULL CHECK (policy_type IN ('compulsory', 'optional')),
+      file_url VARCHAR(500) NOT NULL,
+      status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'analyzed', 'gaps_found', 'compliant')),
+      compliance_score DECIMAL(5,2),
+      ai_analysis_report JSONB,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )`);
+
+  await query(`CREATE INDEX IF NOT EXISTS idx_policies_org_id ON policies(org_id)`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_policies_status ON policies(status)`);
+
   // --- END FULL ASSESSMENT MODULE TABLES ---
+
+  // Migration: Ensure all assessment org members are in org_members table
+  // This fixes the issue where users who created organizations weren't added to org_members
+  try {
+    logger.info('Running migration: Adding assessment creators to org_members...');
+    await query(`
+      INSERT INTO org_members (org_id, user_id, role, status, invited_by)
+      SELECT DISTINCT a.org_id, a.user_id, 'org_admin', 'active', a.user_id
+      FROM assessments a
+      WHERE NOT EXISTS (
+        SELECT 1 FROM org_members om 
+        WHERE om.org_id = a.org_id AND om.user_id = a.user_id
+      )
+      ON CONFLICT DO NOTHING
+    `);
+    const result = await query(`
+      SELECT COUNT(*) as count FROM org_members om
+      WHERE om.role = 'org_admin' AND om.status = 'active'
+    `);
+    logger.info(`Migration completed: ${result.rows[0]?.count || 0} org_admin members are active`);
+  } catch (e) {
+    logger.warn('Migration: Failed to add assessment creators to org_members:', e.message);
+  }
 
   logger.info('Database migrations completed successfully');
   await seedFrameworks();

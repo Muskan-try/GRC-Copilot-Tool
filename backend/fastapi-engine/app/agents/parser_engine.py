@@ -70,8 +70,18 @@ def run_extractor_agent(raw_text: str) -> ExtractionPayload:
     system_instruction = (
         "You are an expert Cyber Security and GRC Auditor. Your singular directive is to parse raw text "
         "and isolate specific, actionable security practices or technical controls.\n\n"
-        "You MUST respond ONLY with a JSON object that matches this schema:\n"
-        f"{ExtractionPayload.model_json_schema()}"
+        "You MUST respond ONLY with a JSON object containing a list of extracted controls under the 'controls_found' key. "
+        "Each control must have the keys: 'evidence_id' (e.g. 'CTRL-01', 'CTRL-02'), 'control_heading' (short name), and 'control_text' (the exact text statement).\n\n"
+        "Example output format:\n"
+        "{\n"
+        "  \"controls_found\": [\n"
+        "    {\n"
+        "      \"evidence_id\": \"CTRL-01\",\n"
+        "      \"control_heading\": \"MFA for Remote Access\",\n"
+        "      \"control_text\": \"Users must use MFA for all remote access.\"\n"
+        "    }\n"
+        "  ]\n"
+        "}"
     )
 
     # Groq handles structured data by setting the response format to json_object

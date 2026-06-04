@@ -35,6 +35,7 @@ services:
     build: ./backend/node-gateway
     container_name: grc_node_gateway
     restart: unless-stopped
+    command: npm run dev
     ports:
       - "3000:3000"
     environment:
@@ -55,7 +56,7 @@ services:
       - GOOGLE_CLIENT_ID=101056858184-j9uk1pa36cs9mf35a6t06vli4t6ph6e2.apps.googleusercontent.com
       - UPLOAD_DIR=./uploads
       - FASTAPI_URL=http://fastapi-engine:8000
-      - GROQ_API_KEY=${GROQ_API_KEY:-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}
+      - GROQ_API_KEY=${GROQ_API_KEY}
       - GOOGLE_CLIENT_SECRET=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
       - GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
       - MICROSOFT_CLIENT_ID=${MICROSOFT_CLIENT_ID}
@@ -80,7 +81,7 @@ services:
     environment:
       - PG_DSN=postgresql://grc_user:grc_secure_password_2025@postgres:5432/grc_copilot
       - MONGO_URI=mongodb://mongodb:27017/grc_copilot
-      - GROQ_API_KEY=${GROQ_API_KEY:-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}
+      - GROQ_API_KEY=${GROQ_API_KEY:-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}
       - LLM_PROVIDER=groq
     volumes:
       - ./backend/fastapi-engine/app:/app/app

@@ -60,6 +60,9 @@ class DeepSeekProvider(LLMProvider):
     async def chat_completion(self, messages: List[Dict], temperature: float = 0.7,
                              max_tokens: int = 2000, json_mode: bool = False,
                              seed: int = 42) -> Optional[str]:
+        if not self.api_key:
+            logger.error("DeepSeek API key is missing or not configured.")
+            return None
         try:
             payload = {
                 "model": self.model,
@@ -105,6 +108,9 @@ class OpenAIProvider(LLMProvider):
     async def chat_completion(self, messages: List[Dict], temperature: float = 0.7,
                              max_tokens: int = 2000, json_mode: bool = False,
                              seed: int = 42) -> Optional[str]:
+        if not self.api_key:
+            logger.error("OpenAI API key is missing or not configured.")
+            return None
         try:
             payload = {
                 "model": self.model,
@@ -150,6 +156,9 @@ class GroqProvider(LLMProvider):
     async def chat_completion(self, messages: List[Dict], temperature: float = 0.7,
                              max_tokens: int = 2000, json_mode: bool = False,
                              seed: int = 42) -> Optional[str]:
+        if not self.api_key:
+            logger.error("Groq API key is missing or not configured.")
+            return None
         try:
             payload = {
                 "model": self.model,

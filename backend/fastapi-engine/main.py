@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -21,6 +24,13 @@ async def lifespan(app: FastAPI):
     await connect_mongo()
     await connect_postgres()
     os.makedirs(os.getenv("REPORT_OUTPUT_DIR", "./reports"), exist_ok=True)
+    
+    try:
+        from app.agents.database_init import initialize_knowledge_base
+        initialize_knowledge_base()
+    except Exception as init_err:
+        logger.error(f"Failed to auto-initialize knowledge base: {init_err}")
+        
     logger.info("Analysis engine ready")
     yield
     logger.info("Shutting down analysis engine...")

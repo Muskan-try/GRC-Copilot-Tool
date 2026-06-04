@@ -24,6 +24,10 @@ const errorHandler = (err, req, res, next) => {
     return res.status(400).json({ error: 'Invalid reference. Related resource not found.' });
   }
 
+  if (err.response && err.response.data) {
+    return res.status(err.response.status || 500).json(err.response.data);
+  }
+
   const statusCode = err.statusCode || 500;
   const message = process.env.NODE_ENV === 'production' && statusCode === 500
     ? 'Internal server error'

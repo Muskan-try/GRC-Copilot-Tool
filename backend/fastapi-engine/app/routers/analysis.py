@@ -29,6 +29,7 @@ class AnalysisResponse(BaseModel):
     pdf_url: Optional[str] = None
     docx_url: Optional[str] = None
     status: str = "complete"
+    progress_rate: Optional[float] = None
 
 
 @router.post("/generate-report", response_model=AnalysisResponse)
@@ -38,13 +39,13 @@ async def generate_report(req: AnalysisRequest):
         # Run the analysis
         analysis = run_full_analysis.run_analysis({
             "assessment_id": req.assessment_id,
-
             "framework": req.framework,
             "analysis_depth": req.analysis_depth,
             "organization": req.organization.model_dump(),
             "responses": [r.model_dump() for r in req.responses],
             "risk_priorities": req.risk_priorities,
             "evidence_total": req.evidence_total,
+            "compliance_score": req.compliance_score,
         })
 
         # Save to MongoDB
@@ -82,6 +83,7 @@ async def generate_report(req: AnalysisRequest):
             pdf_url=pdf_path,
             docx_url=docx_path,
             status="complete",
+            progress_rate=analysis.get("progress_rate", 0.0),
         )
 
     except Exception as e:

@@ -11,6 +11,8 @@ const { connectMongo } = require('./config/mongo');
 const logger = require('./config/logger');
 
 const authRoutes = require('./routes/auth.routes');
+const adminRoutes = require('./routes/admin.routes');
+const orgDashboardRoutes = require('./routes/org.routes');
 const orgRoutes = require('./routes/organization.routes');
 const questionnaireRoutes = require('./routes/questionnaire.routes');
 const responseRoutes = require('./routes/response.routes');
@@ -21,6 +23,7 @@ const complianceAgentRoutes = require('./routes/compliance-agent.routes');
 const auditRoutes = require('./routes/audit.routes');
 const calendarRoutes = require('./routes/calendar.routes');
 const collabRoutes = require('./routes/collaboration.routes');
+const policiesRoutes = require('./routes/policies.routes');
 
 // Module Routes (v2)
 const v2AssessmentRoutes = require('./modules/assessment/routes/assessment.routes');
@@ -44,7 +47,7 @@ app.use(cors({ origin: process.env.CORS_ORIGIN || '*', methods: ['GET', 'POST', 
 
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX) || 100,
+  max: parseInt(process.env.RATE_LIMIT_MAX) || 10000,
   message: { error: 'Too many requests, please try again later.' },
   standardHeaders: true, legacyHeaders: false,
 });
@@ -55,6 +58,8 @@ app.use(morgan('combined', { stream: { write: msg => logger.info(msg.trim()) } }
 
 // API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/org', orgDashboardRoutes);
 app.use('/api/organization', orgRoutes);
 app.use('/api/questionnaire', questionnaireRoutes);
 app.use('/api/responses', responseRoutes);
@@ -65,6 +70,7 @@ app.use('/api/agent/compliance', complianceAgentRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/collab', collabRoutes);
+app.use('/api/policies', policiesRoutes);
 
 // V2 Modular Routes
 app.use('/api/v2/assessment', v2AssessmentRoutes);

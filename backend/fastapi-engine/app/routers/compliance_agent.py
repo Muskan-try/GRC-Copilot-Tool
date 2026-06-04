@@ -18,6 +18,31 @@ from app.modules.compliance_agent.policy_parser import policy_parser
 
 router = APIRouter()
 
+def validate_file_securely(header: bytes, filename: str) -> str:
+    """
+    Verifies that the detected MIME type matches the file extension and is exactly
+    application/pdf or application/vnd.openxmlformats-officedocument.wordprocessingml.document.
+    Raises ValueError if signature verification fails.
+    """
+    ext = os.path.splitext(filename)[1].lower()
+    
+    if ext == ".pdf":
+        if header.startswith(b'%PDF'):
+            return "application/pdf"
+    
+    elif ext == ".docx":
+        if header.startswith(b'PK\x03\x04'):
+            docx_indicators = [
+                b'word/document.xml',
+                b'word/_rels/',
+                b'[Content_Types].xml',
+                b'word/settings.xml'
+            ]
+            if any(indicator in header for indicator in docx_indicators):
+                return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            
+    raise ValueError("Security Violation: Invalid file structure content detected.")
+
 # In-memory store for reports (for demo purposes)
 reports_db: Dict[str, Dict] = {}
 # Content-hash → report cache: same file always returns the same result
@@ -40,6 +65,13 @@ async def get_pg_conn():
 async def upload_policy(file: UploadFile = File(...)):
     """Accepts uploaded policy documents."""
     try:
+        header = await file.read(2048)
+        file.file.seek(0)
+        try:
+            validate_file_securely(header, file.filename)
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=str(ve))
+
         content = await file.read()
         return {
             "filename": file.filename,
@@ -47,6 +79,8 @@ async def upload_policy(file: UploadFile = File(...)):
             "status": "uploaded",
             "message": "Policy uploaded successfully. You can now run the compliance mapping agent."
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"File upload failed: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to upload policy: {str(e)}")
@@ -59,6 +93,13 @@ async def analyze_policy(
 ):
     """Parses document text stream and maps gaps against selected framework using active Auditor Agent."""
     try:
+        header = await file.read(2048)
+        file.file.seek(0)
+        try:
+            validate_file_securely(header, file.filename)
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=str(ve))
+
         content = await file.read()
         if not content:
             raise HTTPException(status_code=400, detail="Uploaded file is empty.")
@@ -175,6 +216,13 @@ async def run_agent(
 ):
     """Runs our new Multi-Agent Vector Pipeline on the uploaded policy, preserving existing DB integration."""
     try:
+        header = await file.read(2048)
+        file.file.seek(0)
+        try:
+            validate_file_securely(header, file.filename)
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=str(ve))
+
         content = await file.read()
         content_hash = hashlib.sha256(content).hexdigest()
         
@@ -266,6 +314,13 @@ async def auto_answer(
 ):
     """Upload a policy doc → extract text → keyword-match against questions → auto-answer."""
     try:
+        header = await file.read(2048)
+        file.file.seek(0)
+        try:
+            validate_file_securely(header, file.filename)
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=str(ve))
+
         content = await file.read()
         policy_text = policy_parser.parse(content, file.filename)
 

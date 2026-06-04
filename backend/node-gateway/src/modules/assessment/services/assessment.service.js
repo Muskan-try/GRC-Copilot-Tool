@@ -1,4 +1,4 @@
-const { query } = require('../../../config/postgres');
+const { query, verifyAssessmentOwnership } = require('../../../config/postgres');
 const logger = require('../../../config/logger');
 
 /**
@@ -97,30 +97,19 @@ class AssessmentService {
   /**
    * Mark an assessment as complete and set the completion date.
    * @param {string} assessmentId 
-   * @param {string} userId 
+   * @param {string} orgId 
    */
-  async completeAssessment(assessmentId, userId) {
+  async completeAssessment(assessmentId, orgId) {
     logger.info(`Marking assessment ${assessmentId} as complete.`);
+    await verifyAssessmentOwnership(assessmentId, orgId);
     const result = await query(
       `UPDATE assessments 
        SET status = 'complete', 
            completed_at = NOW(), 
            updated_at = NOW() 
-       WHERE id = $1 
-         AND status != 'complete'
-         AND (
-           user_id = $2 
-           OR (SELECT role FROM users WHERE id = $2) = 'admin'
-           OR org_id IN (
-             SELECT org_id 
-             FROM org_members 
-             WHERE user_id = $2 
-               AND status = 'active' 
-               AND role IN ('owner', 'admin', 'org_admin', 'team_lead')
-           )
-         )
+       WHERE id = $1 AND org_id = $2 AND status != 'complete'
        RETURNING *`,
-      [assessmentId, userId]
+      [assessmentId, orgId]
     );
     return result.rows[0];
   }
@@ -128,19 +117,16 @@ class AssessmentService {
   /**
    * Get full assessment metadata.
    * @param {string} assessmentId - UUID of the assessment.
-   * @param {string} userId - UUID of the user.
+   * @param {string} orgId - UUID of the organization.
    */
-  async getAssessment(assessmentId, userId) {
+  async getAssessment(assessmentId, orgId) {
+    await verifyAssessmentOwnership(assessmentId, orgId);
     const result = await query(
       `SELECT a.*, o.name as organization_name
        FROM assessments a
        JOIN organizations o ON a.org_id = o.id
-       WHERE a.id = $1 
-         AND (
-           (SELECT role FROM users WHERE id = $2) = 'admin'
-           OR a.org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active')
-         )`,
-      [assessmentId, userId]
+       WHERE a.id = $1 AND a.org_id = $2`,
+      [assessmentId, orgId]
     );
 
     if (result.rows.length === 0) {
@@ -181,8 +167,13 @@ class AssessmentService {
    * @param {string} assessmentId 
    * @param {string} userId 
    * @param {object} updates - { analysis_depth, assessment_type, status }
+   * Update assessment configuration (type, depth, status).
+   * @param {string} assessmentId 
+   * @param {string} orgId 
+   * @param {object} updates - { analysis_depth, assessment_type, status }
    */
-  async updateAssessmentConfig(assessmentId, userId, updates) {
+  async updateAssessmentConfig(assessmentId, orgId, updates) {
+    await verifyAssessmentOwnership(assessmentId, orgId);
     const fields = [];
     const values = [];
     let idx = 1;
@@ -209,27 +200,13 @@ class AssessmentService {
     }
 
     fields.push(`updated_at = NOW()`);
-    const assessIdIdx = idx++;
     values.push(assessmentId);
-    const userIdIdx = idx++;
-    values.push(userId);
+    values.push(orgId);
+    const assessIdIdx = idx++;
+    const orgIdIdx = idx++;
 
     const result = await query(
-      `UPDATE assessments 
-       SET ${fields.join(', ')} 
-       WHERE id = $${assessIdIdx} 
-         AND (
-           user_id = $${userIdIdx} 
-           OR (SELECT role FROM users WHERE id = $${userIdIdx}) = 'admin'
-           OR org_id IN (
-             SELECT org_id 
-             FROM org_members 
-             WHERE user_id = $${userIdIdx} 
-               AND status = 'active' 
-               AND role IN ('owner', 'admin', 'org_admin', 'team_lead')
-           )
-         )
-       RETURNING *`,
+      `UPDATE assessments SET ${fields.join(', ')} WHERE id = $${assessIdIdx} AND org_id = $${orgIdIdx} RETURNING *`,
       values
     );
 
@@ -240,10 +217,11 @@ class AssessmentService {
     return result.rows[0];
   }
 
-  async getAssessmentProgress(assessmentId) {
+  async getAssessmentProgress(assessmentId, orgId) {
+    await verifyAssessmentOwnership(assessmentId, orgId);
     const result = await query(
-      'SELECT total_questions, answered_questions, status FROM assessments WHERE id = $1',
-      [assessmentId]
+      'SELECT total_questions, answered_questions, status FROM assessments WHERE id = $1 AND org_id = $2',
+      [assessmentId, orgId]
     );
     if (result.rows.length === 0) return null;
     
@@ -255,35 +233,19 @@ class AssessmentService {
       progress,
       status
     };
-    }
+  }
 
-    /**
-    * Link additional frameworks to an existing assessment.
-    * @param {string} assessmentId - UUID of the assessment.
-    * @param {string} userId - UUID of the user.
-    * @param {string[]} frameworkNames - List of framework names to add.
-    */
-    async addFrameworks(assessmentId, userId, frameworkNames) {
+  /**
+   * Link additional frameworks to an existing assessment.
+   * @param {string} assessmentId - UUID of the assessment.
+   * @param {string} orgId - UUID of the organization.
+   * @param {string[]} frameworkNames - List of framework names to add.
+   */
+  async addFrameworks(assessmentId, orgId, frameworkNames) {
     logger.info(`Adding frameworks to assessment ${assessmentId}: ${frameworkNames.join(', ')}`);
 
     // 1. Verify ownership/authorization
-    const assessResult = await query(
-      `SELECT id FROM assessments 
-       WHERE id = $1 
-         AND (
-           user_id = $2 
-           OR (SELECT role FROM users WHERE id = $2) = 'admin'
-           OR org_id IN (
-             SELECT org_id 
-             FROM org_members 
-             WHERE user_id = $2 
-               AND status = 'active' 
-               AND role IN ('owner', 'admin', 'org_admin', 'team_lead')
-           )
-         )`,
-      [assessmentId, userId]
-    );
-    if (assessResult.rows.length === 0) throw new Error('Assessment not found or unauthorized');
+    await verifyAssessmentOwnership(assessmentId, orgId);
 
     // 2. Resolve framework IDs
     const frameworkIds = await this.getFrameworkIdsByNames(frameworkNames);
@@ -303,31 +265,21 @@ class AssessmentService {
       success: true,
       added_count: addedCount
     };
-    }
+  }
 
   /**
    * Delete an assessment.
    * @param {string} assessmentId 
-   * @param {string} userId 
+   * @param {string} orgId 
    */
-  async deleteAssessment(assessmentId, userId) {
-    logger.info(`Deleting assessment ${assessmentId} by user ${userId}`);
+  async deleteAssessment(assessmentId, orgId) {
+    logger.info(`Deleting assessment ${assessmentId} by user in org ${orgId}`);
+    await verifyAssessmentOwnership(assessmentId, orgId);
     const result = await query(
       `DELETE FROM assessments 
-       WHERE id = $1 
-         AND (
-           user_id = $2 
-           OR (SELECT role FROM users WHERE id = $2) = 'admin'
-           OR org_id IN (
-             SELECT org_id 
-             FROM org_members 
-             WHERE user_id = $2 
-               AND status = 'active' 
-               AND role IN ('owner', 'admin', 'org_admin', 'team_lead')
-           )
-         )
+       WHERE id = $1 AND org_id = $2
        RETURNING *`,
-      [assessmentId, userId]
+      [assessmentId, orgId]
     );
     return result.rows[0];
   }

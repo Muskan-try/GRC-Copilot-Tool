@@ -709,4 +709,40 @@ async function seedQuestionsAndControls() {
   logger.info('Question seeding completed.');
 }
 
-module.exports = { pool, query, connectPostgres, runMigrations };
+async function verifyAssessmentOwnership(assessmentId, orgId) {
+  if (!assessmentId) return false;
+  const check = await query('SELECT org_id FROM assessments WHERE id = $1', [assessmentId]);
+  if (check.rows.length === 0) return false;
+  if (check.rows[0].org_id !== orgId) {
+    const err = new Error('Access Denied: Security Violation');
+    err.statusCode = 403;
+    throw err;
+  }
+  return true;
+}
+
+async function verifyReportOwnership(reportId, orgId) {
+  if (!reportId) return false;
+  const check = await query('SELECT org_id FROM assessments WHERE report_id = $1', [reportId]);
+  if (check.rows.length === 0) return false;
+  if (check.rows[0].org_id !== orgId) {
+    const err = new Error('Access Denied: Security Violation');
+    err.statusCode = 403;
+    throw err;
+  }
+  return true;
+}
+
+async function verifyPolicyOwnership(policyId, orgId) {
+  if (!policyId) return false;
+  const check = await query('SELECT org_id FROM policies WHERE id = $1', [policyId]);
+  if (check.rows.length === 0) return false;
+  if (check.rows[0].org_id !== orgId) {
+    const err = new Error('Access Denied: Security Violation');
+    err.statusCode = 403;
+    throw err;
+  }
+  return true;
+}
+
+module.exports = { pool, query, connectPostgres, runMigrations, verifyAssessmentOwnership, verifyReportOwnership, verifyPolicyOwnership };

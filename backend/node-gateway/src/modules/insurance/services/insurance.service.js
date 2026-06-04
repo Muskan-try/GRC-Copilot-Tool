@@ -1,4 +1,4 @@
-const { query } = require('../../../config/postgres');
+const { query, verifyAssessmentOwnership } = require('../../../config/postgres');
 const logger = require('../../../config/logger');
 const mappingService = require('../../mapping/services/mapping.service');
 
@@ -12,16 +12,19 @@ class InsuranceService {
   /**
    * Calculate cyber insurance readiness and recommendations.
    */
-  async calculateReadiness(assessmentId, userId) {
+  async calculateReadiness(assessmentId, orgId) {
     logger.info(`Evaluating cyber insurance for assessment: ${assessmentId}`);
+
+    // Verify assessment ownership
+    await verifyAssessmentOwnership(assessmentId, orgId);
 
     // 1. Get assessment and organization details
     const assessmentResult = await query(
       `SELECT a.*, o.name as organization_name, o.industry, o.employee_range, o.region
        FROM assessments a
        JOIN organizations o ON a.org_id = o.id
-       WHERE a.id = $1 AND a.org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active')`,
-      [assessmentId, userId]
+       WHERE a.id = $1 AND a.org_id = $2`,
+      [assessmentId, orgId]
     );
 
     if (assessmentResult.rows.length === 0) return null;

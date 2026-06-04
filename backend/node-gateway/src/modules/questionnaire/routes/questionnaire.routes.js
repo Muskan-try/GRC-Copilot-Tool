@@ -12,7 +12,7 @@ const router = express.Router();
 router.get('/assessment/:id/questions', authenticate, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const questions = await questionnaireService.getQuestionsForAssessment(id, req.user.user_id);
+    const questions = await questionnaireService.getQuestionsForAssessment(id, req.user.org_id);
     res.json({ questions });
   } catch (err) {
     if (err.message.includes('No frameworks linked')) {
@@ -66,6 +66,7 @@ router.post(
       const result = await questionnaireService.saveResponse(
         id,
         req.user.user_id,
+        req.user.org_id,
         req.body.question_id,
         req.body
       );
@@ -87,7 +88,7 @@ router.post(
 router.get('/assessment/:id/stats', authenticate, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const stats = await questionnaireService.getResponseStats(id);
+    const stats = await questionnaireService.getResponseStats(id, req.user.org_id);
     res.json(stats);
   } catch (err) {
     next(err);

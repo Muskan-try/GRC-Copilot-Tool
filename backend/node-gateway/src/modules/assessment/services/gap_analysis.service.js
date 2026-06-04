@@ -1,4 +1,4 @@
-const { query } = require('../../../config/postgres');
+const { query, verifyAssessmentOwnership } = require('../../../config/postgres');
 const logger = require('../../../config/logger');
 const { AssessmentResponse } = require('../../../config/mongo');
 const { getAssessmentTypeConfig, getGapSeverity } = require('../../../data/assessmentTypeConfig');
@@ -11,15 +11,17 @@ class GapAnalysisService {
   /**
    * Perform gap analysis for an assessment.
    * @param {string} assessmentId
-   * @param {string} userId
+   * @param {string} orgId
    */
-  async performAnalysis(assessmentId, userId) {
+  async performAnalysis(assessmentId, orgId) {
     logger.info(`Performing gap analysis for assessment: ${assessmentId}`);
 
     // 1. Verify ownership
+    await verifyAssessmentOwnership(assessmentId, orgId);
+
     const assessCheck = await query(
-      'SELECT id, assessment_type FROM assessments WHERE id = $1 AND (user_id = $2 OR org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = \'active\'))',
-      [assessmentId, userId]
+      'SELECT id, assessment_type FROM assessments WHERE id = $1 AND org_id = $2',
+      [assessmentId, orgId]
     );
     if (assessCheck.rows.length === 0) {
       throw new Error('Assessment not found or unauthorized');

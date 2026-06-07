@@ -188,8 +188,21 @@ router.get('/', authenticate, async (req, res, next) => {
 });
 
 // ─── PUT /api/organization/:id ─────────────────────────────────────────────
-router.put('/:id', authenticate, async (req, res, next) => {
+router.put('/:id', authenticate, [
+  body('name').optional().trim().notEmpty().withMessage('Name cannot be empty'),
+  body('industry').optional().isIn(VALID_INDUSTRIES).withMessage('Invalid industry'),
+  body('region').optional().trim(),
+  body('employee_range').optional().isIn(VALID_EMPLOYEE_RANGES).withMessage('Invalid employee range'),
+  body('contact_name').optional().trim(),
+  body('frameworks').optional().isArray(),
+  body('analysis_depth').optional().isIn(VALID_DEPTHS).withMessage('Invalid analysis depth'),
+], async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+    }
+
     const { id } = req.params;
     const { name, industry, region, employee_range, contact_name, frameworks, analysis_depth } = req.body;
 

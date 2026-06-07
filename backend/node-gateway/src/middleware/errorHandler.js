@@ -25,7 +25,12 @@ const errorHandler = (err, req, res, next) => {
   }
 
   if (err.response && err.response.data) {
-    return res.status(err.response.status || 500).json(err.response.data);
+    logger.error('Upstream service error:', err.response.data);
+    const statusCode = err.response.status || 500;
+    const safeMessage = statusCode >= 500
+      ? 'Upstream service error. Please try again later.'
+      : err.response.data.error || err.response.data.message || 'Request failed.';
+    return res.status(statusCode).json({ error: safeMessage });
   }
 
   const statusCode = err.statusCode || 500;
@@ -38,19 +43,7 @@ const errorHandler = (err, req, res, next) => {
 
 const notFound = (req, res) => {
   res.status(404).json({
-    error: `Route not found: ${req.method} ${req.url}`,
-    available_routes: [
-      'GET  /health',
-      'POST /api/auth/register',
-      'POST /api/auth/login',
-      'GET  /api/auth/profile',
-      'POST /api/organization/setup',
-      'GET  /api/organization/:id',
-      'GET  /api/questionnaire/generate',
-      'POST /api/responses/submit',
-      'GET  /api/dashboard/:assessmentId',
-      'GET  /api/reports/:reportId',
-    ],
+    error: 'Endpoint not found.',
   });
 };
 

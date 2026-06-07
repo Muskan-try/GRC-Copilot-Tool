@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const multer = require('multer');
 const FormData = require('form-data');
+const { body, validationResult } = require('express-validator');
 const { authenticate } = require('../middleware/auth');
 const logger = require('../config/logger');
 const audit = require('../services/audit.service');
@@ -38,9 +39,13 @@ router.post('/upload-policy', authenticate, upload.single('file'), async (req, r
 });
 
 // POST /api/agent/compliance/run
-router.post('/run', authenticate, upload.single('file'), async (req, res, next) => {
+router.post('/run', authenticate, upload.single('file'), [
+  body('target_framework').optional().trim().isLength({ max: 200 }),
+], async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation failed', details: errors.array() });
 
     const form = new FormData();
     form.append('file', req.file.buffer, {
@@ -92,10 +97,14 @@ router.get('/report/:reportId', authenticate, async (req, res, next) => {
 });
 
 // POST /api/agent/compliance/auto-answer
-router.post('/auto-answer', authenticate, upload.single('file'), async (req, res, next) => {
+router.post('/auto-answer', authenticate, upload.single('file'), [
+  body('assessment_id').notEmpty().withMessage('assessment_id required'),
+  body('org_website').optional().trim().isURL().withMessage('org_website must be a valid URL'),
+], async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
-    if (!req.body.assessment_id) return res.status(400).json({ error: 'assessment_id is required.' });
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation failed', details: errors.array() });
 
     const form = new FormData();
     form.append('file', req.file.buffer, {

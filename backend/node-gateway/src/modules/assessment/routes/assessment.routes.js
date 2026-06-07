@@ -95,8 +95,17 @@ router.post(
  * PATCH /api/v2/assessment/:id/config
  * Update assessment configuration (type, depth, status).
  */
-router.patch('/:id/config', authenticate, async (req, res, next) => {
+router.patch('/:id/config', authenticate, [
+  body('analysis_depth').optional().isIn(['quick', 'standard', 'comprehensive', 'full', 'internal', 'vendor', 'risk', 'gap']).withMessage('Invalid analysis depth'),
+  body('assessment_type').optional().isIn(['compliance_assessment', 'risk_assessment', 'gap_assessment', 'vendor_assessment', 'internal_audit', 'full_audit']).withMessage('Invalid assessment type'),
+  body('status').optional().isIn(['draft', 'setup', 'in_progress', 'under_review', 'completed', 'archived']).withMessage('Invalid status'),
+], async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+    }
+
     const { id } = req.params;
     const { analysis_depth, assessment_type, status } = req.body;
     const updates = {};

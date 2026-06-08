@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { isAuthenticated } from "./api";
 import { ToastProvider } from "./components/Toast";
@@ -20,7 +21,7 @@ import OAuthCallback from "./pages/OAuthCallback";
 import AdminDashboard from "./pages/AdminDashboard";
 import OrgDashboard from "./pages/OrgDashboard";
 import PolicyUploadWizard from "./pages/PolicyUploadWizard";
-import { getCurrentUser } from "./api";
+import { getCurrentUser, getProfile } from "./api";
 
 function RequireAuth({ children }) {
   return isAuthenticated() ? children : <Navigate to="/" replace />;
@@ -46,14 +47,41 @@ function RequireRole({ children, roles }) {
   return children;
 }
 
+function RequireGuest({ children }) {
+  if (isAuthenticated()) {
+    const user = getCurrentUser();
+    if (user?.role === 'admin') return <Navigate to="/admin-dashboard" replace />;
+    if (user?.role === 'org_admin' || user?.role === 'owner') return <Navigate to="/org-dashboard" replace />;
+    return <Navigate to="/start" replace />;
+  }
+  return children;
+}
+
 export default function App() {
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated()) {
+      getProfile().catch(() => logout());
+    }
+    setAuthChecked(true);
+  }, []);
+
+  if (!authChecked) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-color)' }}>
+        <div className="loader"></div>
+      </div>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <ToastProvider>
         <Router>
           <Layout>
             <Routes>
-              <Route path="/" element={<Auth />} />
+              <Route path="/" element={<RequireGuest><Auth /></RequireGuest>} />
               <Route path="/start" element={<RequireAuth><Start /></RequireAuth>} />
               
               {/* Specialized Dashboards */}
@@ -90,7 +118,7 @@ export default function App() {
               <Route path="/questions" element={<Navigate to="/start" replace />} />
               <Route path="/questionnaire-full" element={<Navigate to="/start" replace />} />
               <Route path="/audit-type" element={<Navigate to="/level-of-assessment" replace />} />
-              <Route path="*" element={<Navigate to="/start" replace />} />
+              <Route path="*" element={isAuthenticated() ? <Navigate to="/start" replace /> : <Navigate to="/" replace />} />
             </Routes>
           </Layout>
         </Router>

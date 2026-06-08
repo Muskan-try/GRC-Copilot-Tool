@@ -1,15 +1,24 @@
 const express = require('express');
+const { body, validationResult } = require('express-validator');
 const router = express.Router();
 const { callDeepSeek } = require('../services/ai.service');
 const { authenticate } = require('../middleware/auth');
 
-router.post('/chat', authenticate, async (req, res, next) => {
+router.post('/chat', authenticate, [
+  body('message').trim().notEmpty().withMessage('Message required').isLength({ max: 2000 }).withMessage('Message too long'),
+  body('history').optional().isArray({ max: 50 }).withMessage('History must be an array (max 50 items)'),
+  body('context.orgName').optional().trim().isLength({ max: 200 }),
+  body('context.framework').optional().trim().isLength({ max: 200 }),
+  body('context.score').optional().isNumeric(),
+  body('context.riskLevel').optional().trim().isLength({ max: 50 }),
+], async (req, res, next) => {
   try {
-    const { message, history, context } = req.body;
-    
-    if (!message) {
-      return res.status(400).json({ error: 'Message is required' });
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: 'Validation failed', details: errors.array() });
     }
+
+    const { message, history, context } = req.body;
 
     const systemPrompt = `You are a GRC (Governance, Risk, and Compliance) Assistant. 
     You help users understand security frameworks like ISO 27001, GDPR, NIST, etc.

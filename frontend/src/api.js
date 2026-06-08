@@ -144,7 +144,36 @@ export function logout() {
 }
 
 export function isAuthenticated() {
-  return !!localStorage.getItem("grc_auth_token");
+  const token = localStorage.getItem("grc_auth_token");
+  if (!token) return false;
+
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(
+      decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+          .join('')
+      )
+    );
+
+    if (!payload.exp) return false;
+    const now = Math.floor(Date.now() / 1000);
+    if (payload.exp <= now) {
+      logout();
+      return false;
+    }
+
+    return true;
+  } catch (e) {
+    logout();
+    return false;
+  }
 }
 
 // ─── Organization ───────────────────────────────────────────────

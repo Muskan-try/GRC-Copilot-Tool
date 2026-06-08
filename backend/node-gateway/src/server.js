@@ -33,6 +33,7 @@ const v2ReportingRoutes = require('./modules/reporting/routes/reporting.routes')
 
 const { errorHandler } = require('./middleware/errorHandler');
 const { notFound } = require('./middleware/notFound');
+const { authenticate } = require('./middleware/auth');
 
 const app = express();
 
@@ -44,21 +45,89 @@ app.use(helmet({
   crossOriginOpenerPolicy: false,
 }));
 app.use(passport.initialize());
-app.use(cors({ origin: process.env.CORS_ORIGIN || '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'], allowedHeaders: ['Content-Type', 'Authorization'] }));
 
+// ─── CORS Configuration ──────────────────────────────────────────────────
+function getAllowedOrigins() {
+  const raw = process.env.CORS_ORIGIN;
+  if (!raw) {
+    if (process.env.NODE_ENV === 'production') {
+      logger.error('FATAL: CORS_ORIGIN not set in production. Refusing to start.');
+      process.exit(1);
+    }
+    return ['http://localhost:5173'];
+  }
+  return raw.split(',').map(o => o.trim()).filter(Boolean);
+}
+
+app.use(cors({
+  origin: getAllowedOrigins(),
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: false,
+  maxAge: 86400,
+}));
+
+// ─── Rate Limiting ──────────────────────────────────────────────────────
+// Global default: 200 per 15 minutes
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
   max: process.env.NODE_ENV === 'development' ? 1000000 : (parseInt(process.env.RATE_LIMIT_MAX) || 10000),
   message: { error: 'Too many requests, please try again later.' },
   standardHeaders: true, legacyHeaders: false,
 });
+
+// Auth-specific: prevent brute-force attacks
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many authentication attempts. Please try again later.' },
+  standardHeaders: true, legacyHeaders: false,
+});
+
+// Upload-specific: prevent resource exhaustion
+const uploadLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  message: { error: 'Upload limit reached. Please try again later.' },
+  standardHeaders: true, legacyHeaders: false,
+});
+
+// AI-specific: prevent compute exhaustion
+const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { error: 'AI request limit reached. Please try again later.' },
+  standardHeaders: true, legacyHeaders: false,
+});
+
 app.use(limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined', { stream: { write: msg => logger.info(msg.trim()) } }));
 
+// ─── Global Auth Middleware ──────────────────────────────────────────────
+// Protect ALL /api/* routes by default with explicit public exemptions.
+// This prevents accidental exposure of new routes that forget to add
+// the authenticate middleware.
+
+const PUBLIC_API_PATHS = [
+  '/auth/register',
+  '/auth/login',
+  '/auth/google',
+  '/auth/google/callback',
+  '/auth/microsoft',
+  '/auth/microsoft/callback',
+];
+
+app.use('/api', (req, res, next) => {
+  if (PUBLIC_API_PATHS.some(path => req.path.startsWith(path))) {
+    return next();
+  }
+  return authenticate(req, res, next);
+});
+
 // API routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/org', orgDashboardRoutes);
 app.use('/api/organization', orgRoutes);
@@ -66,12 +135,12 @@ app.use('/api/questionnaire', questionnaireRoutes);
 app.use('/api/responses', responseRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/reports', reportRoutes);
-app.use('/api/ai', aiRoutes);
-app.use('/api/agent/compliance', complianceAgentRoutes);
+app.use('/api/ai', aiLimiter, aiRoutes);
+app.use('/api/agent/compliance', uploadLimiter, complianceAgentRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/collab', collabRoutes);
-app.use('/api/policies', policiesRoutes);
+app.use('/api/policies', uploadLimiter, policiesRoutes);
 
 // V2 Modular Routes
 app.use('/api/v2/assessment', v2AssessmentRoutes);
@@ -88,6 +157,16 @@ app.use(errorHandler);
 
 async function bootstrap() {
   try {
+    // Validate JWT_SECRET before starting
+    if (!process.env.JWT_SECRET) {
+      if (process.env.NODE_ENV === 'production') {
+        logger.error('FATAL: JWT_SECRET is not set in production mode. Refusing to start.');
+        process.exit(1);
+      } else {
+        logger.warn('WARNING: JWT_SECRET not set. Using development fallback. DO NOT deploy this to production.');
+      }
+    }
+    
     await connectPostgres().catch(err => logger.error('PostgreSQL connection failed, continuing in standalone mode:', err.message));
     try {
       await runMigrations();

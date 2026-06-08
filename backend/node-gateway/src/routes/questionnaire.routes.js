@@ -1,4 +1,5 @@
 const express = require('express');
+const { body, validationResult } = require('express-validator');
 const { query } = require('../config/postgres');
 const { Question, QuestionBank } = require('../config/mongo');
 const { authenticate } = require('../middleware/auth');
@@ -279,10 +280,16 @@ router.get('/frameworks', authenticate, async (req, res) => {
 });
 
 // POST /api/questionnaire/ai-generate
-router.post('/ai-generate', authenticate, async (req, res, next) => {
+router.post('/ai-generate', authenticate, [
+  body('framework').trim().notEmpty().withMessage('Framework required'),
+  body('categories').isArray({ min: 1 }).withMessage('Categories must be a non-empty array'),
+  body('depth').optional().isString().isIn(['quick', 'standard', 'comprehensive', 'full', 'internal', 'vendor', 'risk', 'gap']),
+], async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+
     const { framework, categories, depth } = req.body;
-    if (!framework || !categories) return res.status(400).json({ error: 'framework and categories required' });
 
     const countPerCat = Math.max(2, Math.floor((DEPTH_QUESTION_COUNTS[depth] || 6) / categories.length));
     logger.info(`AI generating questions for ${framework} (${depth})`);
@@ -307,8 +314,17 @@ router.post('/ai-generate', authenticate, async (req, res, next) => {
 });
 
 // POST /api/questionnaire/ai-report
-router.post('/ai-report', authenticate, async (req, res, next) => {
+router.post('/ai-report', authenticate, [
+  body('framework').trim().notEmpty().withMessage('Framework required'),
+  body('score').isNumeric().withMessage('Score must be a number'),
+  body('risk').trim().notEmpty().withMessage('Risk level required'),
+  body('gaps').optional().isArray(),
+  body('answers').optional().isObject(),
+], async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+
     const { framework, score, risk, gaps, answers } = req.body;
     logger.info(`AI generating report for ${framework}: ${score}%, ${risk}`);
     const aiReport = await generateReport(framework, score, risk, gaps || [], answers || {});

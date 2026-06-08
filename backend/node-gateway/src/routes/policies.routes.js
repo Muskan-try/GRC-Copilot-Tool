@@ -156,9 +156,10 @@ router.post(
       });
 
     } catch (err) {
-      logger.error('Error in POST /api/policies/upload:', err.message);
-      res.status(err.response?.status || 500).json({
-        error: err.response?.data?.detail || err.message || 'Failed to process and analyze policy document.'
+      logger.error('Error in POST /api/policies/upload:', err.response?.data || err.message);
+      const status = err.response?.status || 500;
+      res.status(status).json({
+        error: status >= 500 ? 'Policy analysis service unavailable. Please try again later.' : 'Policy analysis failed.',
       });
     }
   }

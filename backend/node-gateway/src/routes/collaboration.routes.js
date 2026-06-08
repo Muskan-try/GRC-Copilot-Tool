@@ -44,8 +44,13 @@ router.delete('/members/:userId', authenticate, async (req, res, next) => {
 });
 
 // PUT /api/collab/members/:userId/role?org_id=xxx
-router.put('/members/:userId/role', authenticate, async (req, res, next) => {
+router.put('/members/:userId/role', authenticate, [
+  body('role').isIn(['org_admin', 'team_lead', 'team_member', 'member', 'admin', 'reviewer', 'auditor']).withMessage('Invalid role'),
+], async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+
     const member = await collab.updateMemberRole(req.query.org_id, req.params.userId, req.body.role);
     if (!member) return res.status(404).json({ error: 'Member not found' });
     res.json(member);
@@ -136,8 +141,13 @@ router.get('/assignments/:assessmentId', authenticate, async (req, res, next) =>
 });
 
 // PUT /api/collab/assignments/:id/status
-router.put('/assignments/:id/status', authenticate, async (req, res, next) => {
+router.put('/assignments/:id/status', authenticate, [
+  body('status').isIn(['pending', 'in_progress', 'completed', 'rejected']).withMessage('Invalid status'),
+], async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+
     const assignment = await collab.updateAssignmentStatus(req.params.id, req.body.status);
     if (!assignment) return res.status(404).json({ error: 'Assignment not found' });
     res.json(assignment);

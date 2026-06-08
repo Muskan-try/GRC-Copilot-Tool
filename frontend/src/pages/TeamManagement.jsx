@@ -10,8 +10,8 @@ import { useToast } from "../components/Toast";
 const ROLE_OPTIONS = [
   { value: "admin", label: "Super Admin", desc: "Full system control across all organizations", color: "var(--danger)" },
   { value: "org_admin", label: "Organization Admin", desc: "Manage organization settings and members", color: "var(--primary)" },
-  { value: "lead", label: "Team Lead (Checker)", desc: "Validator for policy uploads and questionnaire fixes", color: "var(--info)" },
-  { value: "member", label: "Team Member (Maker)", desc: "Select frameworks, upload policies, and answer questionnaires", color: "var(--text-muted)" },
+  { value: "lead", label: "Team Lead", desc: "Validator for policy uploads and questionnaire fixes", color: "var(--info)" },
+  { value: "member", label: "Team Member", desc: "Select frameworks, upload policies, and answer questionnaires", color: "var(--text-muted)" },
 ];
 
 export default function TeamManagement() {

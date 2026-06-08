@@ -36,13 +36,13 @@ const ROLES = [
   },
   {
     id: "lead",
-    title: "Team Lead (Checker)",
+    title: "Team Lead",
     description: "Lead specific assessments, assign tasks, and review team responses.",
     icon: <Briefcase size={28} />
   },
   {
     id: "member",
-    title: "Team Member (Maker)",
+    title: "Team Member",
     description: "Execute assigned controls, provide evidence, and participate in audits.",
     icon: <Users size={28} />
   }

@@ -546,11 +546,11 @@ export default function Start() {
               <div style={{ background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)", padding: 32, borderRadius: 24, color: "#fff", marginBottom: 40, border: "1px solid var(--cyber-border)", boxShadow: "0 10px 30px rgba(0,0,0,0.15)", position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", top: -50, right: -50, width: 200, height: 200, background: "radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0) 70%)", borderRadius: "50%" }} />
                 <div style={{ display: "inline-block", background: "rgba(59, 130, 246, 0.15)", color: "var(--primary)", padding: "6px 14px", borderRadius: 8, fontSize: "0.7rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
-                  Checker Validation Portal
+                  Team Lead Validation Portal
                 </div>
                 <h2 style={{ margin: 0, fontSize: "2rem", fontWeight: 900, color: "#fff", textAlign: "left" }}>GRC Compliance Dashboard</h2>
                 <p style={{ color: "#94a3b8", fontSize: "0.95rem", margin: "8px 0 0 0", lineHeight: 1.6, textAlign: "left" }}>
-                  Welcome back, Checker! You have validator credentials. Below is the complete record of compliance assessments and reports, along with items awaiting your review and authorization.
+                  Welcome back, Team Lead! You have validator credentials. Below is the complete record of compliance assessments and reports, along with items awaiting your review and authorization.
                 </p>
               </div>
 
@@ -564,7 +564,7 @@ export default function Start() {
                 boxShadow: "0 4px 20px rgba(0,0,0,0.05)"
               }}>
                 <h3 style={{ margin: "0 0 20px 0", fontSize: "1.2rem", fontWeight: 800, color: "var(--text-main)", display: "flex", alignItems: "center", gap: 8 }}>
-                  🔔 Checker Alert & Validation Panel
+                  🔔 Team Lead Alert & Validation Panel
                 </h3>
 
                 {/* Pending Policy Approval Section — single full-width card */}

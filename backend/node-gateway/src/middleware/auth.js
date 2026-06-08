@@ -64,10 +64,14 @@ const authenticate = async (req, res, next) => {
       orgId = decoded.org_id || null;
     }
 
+    let finalRole = userRecord.role === 'admin' ? 'admin' : (memberRole || userRecord.role);
+    if (finalRole === 'team_member') finalRole = 'member';
+    if (finalRole === 'team_lead') finalRole = 'lead';
+
     req.user = {
       user_id: userRecord.id,
       email: userRecord.email,
-      role: userRecord.role === 'admin' ? 'admin' : (memberRole || userRecord.role),
+      role: finalRole,
       org_id: orgId
     };
 

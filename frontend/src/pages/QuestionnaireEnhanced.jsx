@@ -32,7 +32,7 @@ export default function QuestionnaireEnhanced() {
   const user = getCurrentUser();
   const username = user?.email ? user.email.split("@")[0] : "user";
   const roleLabel = (user?.role || "TEAM MEMBER").replace(/_/g, " ").toUpperCase();
-  const isTeamMember = user?.role === 'team_member';
+  const isTeamLead = user?.role === 'lead';
   const assessmentId = id && id !== "new" ? id : sessionStorage.getItem("assessmentId");
 
   const [loading, setLoading] = useState(true);
@@ -111,7 +111,7 @@ export default function QuestionnaireEnhanced() {
   }, []);
 
   const saveProgress = useCallback((currentAnswers, index) => {
-    if (isTeamMember) return;
+    if (isTeamLead) return;
     try {
       sessionStorage.setItem(
         STORAGE_KEY,
@@ -120,7 +120,7 @@ export default function QuestionnaireEnhanced() {
     } catch (err) {
       console.error("Failed to save progress:", err);
     }
-  }, [isTeamMember]);
+  }, [isTeamLead]);
 
   useEffect(() => {
     if (Object.keys(answers).length > 0 || currentIndex > 0) {
@@ -136,7 +136,7 @@ export default function QuestionnaireEnhanced() {
   };
 
   const handleComplianceSelect = async (val) => {
-    if (isTeamMember) return;
+    if (isTeamLead) return;
     if (!currentQuestion) return;
     const qid = currentQuestion.question_id;
     const prev = answers[qid] || {};
@@ -168,7 +168,7 @@ export default function QuestionnaireEnhanced() {
   };
 
   const handleMaturitySelect = async (val) => {
-    if (isTeamMember) return;
+    if (isTeamLead) return;
     if (!currentQuestion) return;
     const qid = currentQuestion.question_id;
     const prev = answers[qid] || {};
@@ -201,7 +201,7 @@ export default function QuestionnaireEnhanced() {
   };
 
   const handleEvidenceChoice = async (choice) => {
-    if (isTeamMember) return;
+    if (isTeamLead) return;
     if (!currentQuestion) return;
     const qid = currentQuestion.question_id;
     const prev = answers[qid] || {};
@@ -224,7 +224,7 @@ export default function QuestionnaireEnhanced() {
   };
 
   const submitAnswer = async (qid, ans, question) => {
-    if (isTeamMember) return;
+    if (isTeamLead) return;
     if (!ans || ans.compliance === undefined || ans.maturity === undefined) return;
     try {
       const opt = COMPLIANCE_OPTIONS.find((o) => o.val === ans.compliance);
@@ -266,7 +266,7 @@ export default function QuestionnaireEnhanced() {
   };
 
   const handleFileUpload = async (e) => {
-    if (isTeamMember) return;
+    if (isTeamLead) return;
     const files = e.target.files;
     if (!files.length || !currentQuestion) return;
     setUploading(true);
@@ -309,7 +309,7 @@ export default function QuestionnaireEnhanced() {
   };
 
   const finish = async () => {
-    if (isTeamMember) return;
+    if (isTeamLead) return;
     setSaving(true);
     try {
       // Mark assessment as complete on the backend so dashboard reflects it
@@ -476,7 +476,7 @@ export default function QuestionnaireEnhanced() {
           {/* Framework details subbar */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, padding: "0 10px" }}>
             <div>
-              {isTeamMember && (
+              {isTeamLead && (
                 <span
                   style={{
                     fontSize: "0.8rem",
@@ -492,7 +492,7 @@ export default function QuestionnaireEnhanced() {
                   Read-Only Review
                 </span>
               )}
-              <span style={{ color: "var(--text-muted)", marginLeft: isTeamMember ? 16 : 0, fontSize: "0.95rem" }}>
+              <span style={{ color: "var(--text-muted)", marginLeft: isTeamLead ? 16 : 0, fontSize: "0.95rem" }}>
                 <strong>{sessionFormData.orgName || "Organization"}</strong> | {sessionStorage.getItem("compliance") || "Framework"}
               </span>
             </div>
@@ -575,7 +575,7 @@ export default function QuestionnaireEnhanced() {
             <button className="btn btn-outline" onClick={() => setView("questionnaire")}>
               ← Back to Questions
             </button>
-            {!isTeamMember && (
+            {!isTeamLead && (
               <button className="btn btn-primary" onClick={finish} disabled={saving}>
                 {saving ? "Generating Report..." : "Generate Compliance Report"}
               </button>
@@ -835,7 +835,7 @@ export default function QuestionnaireEnhanced() {
             })}
           </div>
 
-          {isTeamMember && (
+          {isTeamLead && (
             <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border-color)", marginTop: "auto" }}>
               <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 600, textAlign: 'center' }}>
                 Read-Only Access: Review Mode
@@ -870,8 +870,8 @@ export default function QuestionnaireEnhanced() {
 
             <div className="answer-section">
               {/* Compliance Status */}
-              <div className="compliance-section" style={{ opacity: isTeamMember ? 0.7 : 1 }}>
-                <h3>Compliance Status {isTeamMember && "(Read-Only)"}</h3>
+              <div className="compliance-section" style={{ opacity: isTeamLead ? 0.7 : 1 }}>
+                <h3>Compliance Status {isTeamLead && "(Read-Only)"}</h3>
                 <div className="option-grid compliance-options">
                   {COMPLIANCE_OPTIONS.map((opt) => {
                     const isSelected = currentAnswer.compliance === opt.val;
@@ -880,11 +880,11 @@ export default function QuestionnaireEnhanced() {
                         key={opt.label}
                         className={`option-btn ${isSelected ? "selected" : ""}`}
                         onClick={() => handleComplianceSelect(opt.val)}
-                        disabled={isTeamMember}
+                        disabled={isTeamLead}
                         style={{
                           borderColor: isSelected ? opt.color : undefined,
                           backgroundColor: isSelected ? `${opt.color}15` : undefined,
-                          cursor: isTeamMember ? 'default' : 'pointer'
+                          cursor: isTeamLead ? 'default' : 'pointer'
                         }}
                       >
                         <span
@@ -906,9 +906,9 @@ export default function QuestionnaireEnhanced() {
               </div>
 
               {/* Maturity Scale */}
-              <div className="maturity-section" style={{ opacity: isTeamMember ? 0.7 : 1 }}>
+              <div className="maturity-section" style={{ opacity: isTeamLead ? 0.7 : 1 }}>
                 <div className="maturity-header">
-                  <h3>Implementation Maturity {isTeamMember && "(Read-Only)"}</h3>
+                  <h3>Implementation Maturity {isTeamLead && "(Read-Only)"}</h3>
                   <span className="current-level">
                     Level {currentAnswer.maturity ?? 0}: {MATURITY_LEVELS[currentAnswer.maturity ?? 0]?.label}
                   </span>
@@ -922,12 +922,12 @@ export default function QuestionnaireEnhanced() {
                         key={level.val}
                         className={`maturity-btn ${isSelected ? "selected" : ""}`}
                         onClick={() => handleMaturitySelect(level.val)}
-                        disabled={isTeamMember}
+                        disabled={isTeamLead}
                         style={{
                           backgroundColor: isSelected ? level.color : undefined,
                           borderColor: isSelected ? level.color : undefined,
                           color: isSelected ? "var(--text-on-dark)" : undefined,
-                          cursor: isTeamMember ? 'default' : 'pointer'
+                          cursor: isTeamLead ? 'default' : 'pointer'
                         }}
                       >
                         <span className="maturity-val">{level.val}</span>
@@ -986,7 +986,7 @@ export default function QuestionnaireEnhanced() {
                 <div className="evidence-section" style={{ marginTop: "24px" }}>
                   <h3>Evidence & Documentation</h3>
                   
-                  {!isTeamMember && (
+                  {!isTeamLead && (
                     <div className="evidence-upload">
                       <input
                         type="file"

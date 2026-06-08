@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { API_BASE, getCurrentUser } from "../api";
+import { API_BASE, getCurrentUser, uploadPolicy, listPolicies } from "../api";
 import { useToast } from "../components/Toast";
 import { 
   FileText, 
@@ -15,7 +15,8 @@ import {
   Eye,
   Loader2,
   X,
-  FileCheck
+  FileCheck,
+  Download
 } from "lucide-react";
 
 export default function PolicyUploadWizard() {
@@ -69,6 +70,88 @@ export default function PolicyUploadWizard() {
   const [selectedPolicy, setSelectedPolicy] = useState(null);
   const [selectedGaps, setSelectedGaps] = useState({});
   const [viewingUpdatedPolicy, setViewingUpdatedPolicy] = useState(null);
+
+  useEffect(() => {
+    const fetchExistingPolicies = async () => {
+      try {
+        const res = await listPolicies(assessmentId);
+        const dbPolicies = res.policies || [];
+        
+        // Sync compulsory list
+        setCompulsoryList(prevList =>
+          prevList.map(item => {
+            const dbPolicy = dbPolicies.find(p => p.policy_name === item.name);
+            if (dbPolicy) {
+              return {
+                ...item,
+                db_id: dbPolicy.id,
+                status: dbPolicy.status,
+                score: dbPolicy.compliance_score,
+                report: dbPolicy.ai_analysis_report || item.report,
+                fixedGaps: dbPolicy.ai_analysis_report?.fixedGaps || item.fixedGaps
+              };
+            }
+            return item;
+          })
+        );
+
+        // Sync optional list
+        setOptionalList(prevList => {
+          // Sync existing default optional items
+          const syncedDefault = prevList.map(item => {
+            const dbPolicy = dbPolicies.find(p => p.policy_name === item.name);
+            if (dbPolicy) {
+              return {
+                ...item,
+                db_id: dbPolicy.id,
+                status: dbPolicy.status,
+                score: dbPolicy.compliance_score,
+                report: dbPolicy.ai_analysis_report || item.report,
+                fixedGaps: dbPolicy.ai_analysis_report?.fixedGaps || item.fixedGaps
+              };
+            }
+            return item;
+          });
+
+          // Reconstruct custom optional items
+          const defaultNames = new Set([
+            ...getCompulsoryPolicies().map(p => p.name),
+            "Remote Work & BYOD Security Policy",
+            "Employee Acceptable Use Policy"
+          ]);
+
+          const customDbPolicies = dbPolicies.filter(p => p.policy_type === 'optional' && !defaultNames.has(p.policy_name));
+          const customRows = customDbPolicies.map(p => ({
+            id: `custom_${p.id}`,
+            name: p.policy_name,
+            type: "optional",
+            status: p.status,
+            file: p.file_url ? p.file_url.split(/[\\/]/).pop() : null,
+            db_id: p.id,
+            score: p.compliance_score,
+            report: p.ai_analysis_report,
+            fixedGaps: p.ai_analysis_report?.fixedGaps
+          }));
+
+          // Deduplicate and combine
+          const combined = [...syncedDefault];
+          customRows.forEach(row => {
+            if (!combined.some(p => p.name === row.name)) {
+              combined.push(row);
+            }
+          });
+          return combined;
+        });
+
+      } catch (err) {
+        console.error("Failed to load existing policies:", err);
+      }
+    };
+
+    if (assessmentId) {
+      fetchExistingPolicies();
+    }
+  }, [assessmentId]);
 
   useEffect(() => {
     if (selectedPolicy && selectedPolicy.report?.gaps) {
@@ -135,28 +218,10 @@ export default function PolicyUploadWizard() {
     else setOptionalList(updater);
 
     try {
-      const token = localStorage.getItem("grc_auth_token");
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("policy_name", isCompulsory ? compulsoryList.find(p => p.id === policyId).name : optionalList.find(p => p.id === policyId).name);
-      formData.append("policy_type", isCompulsory ? "compulsory" : "optional");
-      formData.append("target_framework", framework);
-      formData.append("assessment_id", assessmentId);
+      const policyName = isCompulsory ? compulsoryList.find(p => p.id === policyId).name : optionalList.find(p => p.id === policyId).name;
+      const policyType = isCompulsory ? "compulsory" : "optional";
 
-      const response = await fetch(`${API_BASE}/policies/upload`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Upload failed: ${response.status}`);
-      }
-
-      const uploadResult = await response.json();
+      const uploadResult = await uploadPolicy(file, policyName, policyType, framework, assessmentId);
       toast.addToast("Policy file uploaded and registered in vault.", "success");
 
       // Extract dynamic analysis report from the backend API response
@@ -166,11 +231,12 @@ export default function PolicyUploadWizard() {
         recommendations: uploadResult.recommendations || []
       };
 
-      const finalStatus = finalReport.gaps.length === 0 ? "compliant" : "gaps_found";
+      const finalStatus = uploadResult.policy.status; // Immediately analyzed and set to gaps_found/compliant
 
       const finalUpdater = (list) =>
         list.map(item => item.id === policyId ? { 
           ...item, 
+          db_id: uploadResult.policy.id, // Store database policy ID
           status: finalStatus, 
           score: finalReport.score, 
           report: finalReport 
@@ -189,6 +255,22 @@ export default function PolicyUploadWizard() {
       if (isCompulsory) setCompulsoryList(failUpdater);
       else setOptionalList(failUpdater);
     }
+  };
+
+  // Policy Download Handler
+  const handleDownloadPolicy = (policy) => {
+    const sections = getUpdatedPolicyDocument(policy);
+    const text = sections.map(s => `${s.title}\n${s.content}`).join('\n\n');
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${policy.name.replace(/\s+/g, '_')}_Remediated.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.addToast("Policy downloaded successfully", "success");
   };
 
   // Dynamic Add Custom Policy Row
@@ -247,7 +329,7 @@ export default function PolicyUploadWizard() {
           }
           newScore = Number(Number(newScore).toFixed(1));
 
-          const finalStatus = remainingGaps.length === 0 ? "compliant" : "gaps_found";
+          const finalStatus = "PENDING_LEAD_SIGN_OFF"; // Staged auto-fix requires Team Lead sign-off
           
           const previouslyFixed = item.fixedGaps || [];
           const newFixedGaps = indicesToFix.map(idx => currentGaps[idx]);
@@ -267,6 +349,50 @@ export default function PolicyUploadWizard() {
             fixedGaps: combinedFixed
           };
         });
+
+      // Find the target policy from the current state list to get its db_id
+      const listToSearch = isCompulsory ? compulsoryList : optionalList;
+      const targetPolicy = listToSearch.find(p => p.id === policyId);
+      
+      // Calculate new score and remaining gaps to send to backend (copied from list mapping logic)
+      if (targetPolicy && targetPolicy.db_id) {
+        const currentGaps = targetPolicy.report?.gaps || [];
+        const totalGapsCount = currentGaps.length;
+        const indicesToFix = selectedIndices.length > 0 
+          ? selectedIndices 
+          : currentGaps.map((_, idx) => idx);
+        const remainingGaps = currentGaps.filter((_, idx) => !indicesToFix.includes(idx));
+        
+        const oldScore = parseFloat(String(targetPolicy.score || 70).replace(/%/g, '')) || 70;
+        const targetScore = 98.4;
+        const fixedCount = indicesToFix.length;
+        
+        let newScore = oldScore;
+        if (totalGapsCount > 0) {
+          newScore = oldScore + (targetScore - oldScore) * (fixedCount / totalGapsCount);
+        } else {
+          newScore = targetScore;
+        }
+        newScore = Number(Number(newScore).toFixed(1));
+
+        const token = localStorage.getItem("grc_auth_token");
+        fetch(`${API_BASE}/policies/${targetPolicy.db_id}/auto-fix`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            score: newScore,
+            gaps: remainingGaps,
+            recommendations: (targetPolicy.report?.recommendations || [])
+          })
+        }).then(res => {
+          if (!res.ok) console.error("Failed to update auto-fixed status on backend");
+        }).catch(err => {
+          console.error("Error updating auto-fixed status:", err);
+        });
+      }
 
       if (isCompulsory) setCompulsoryList(fixUpdater);
       else setOptionalList(fixUpdater);
@@ -330,10 +456,11 @@ export default function PolicyUploadWizard() {
                   policy={policy}
                   isCompulsory={true}
                   onUpload={(file) => handleFileUpload(policy.id, true, file)}
-                  onAutoFix={() => handleAutoFixPolicy(policy.id, true)}
+                  onAutoFix={() => handleViewGaps(policy)}
                   onViewReport={() => handleViewGaps(policy)}
                   fixing={fixingPolicyId === policy.id}
                   onViewUpdatedPolicy={() => setViewingUpdatedPolicy(policy)}
+                  onDownload={handleDownloadPolicy}
                 />
               ))}
             </div>
@@ -408,11 +535,12 @@ export default function PolicyUploadWizard() {
                   policy={policy}
                   isCompulsory={false}
                   onUpload={(file) => handleFileUpload(policy.id, false, file)}
-                  onAutoFix={() => handleAutoFixPolicy(policy.id, false)}
+                  onAutoFix={() => handleViewGaps(policy)}
                   onViewReport={() => handleViewGaps(policy)}
                   onDelete={() => handleDeletePolicyRow(policy.id, false)}
                   fixing={fixingPolicyId === policy.id}
                   onViewUpdatedPolicy={() => setViewingUpdatedPolicy(policy)}
+                  onDownload={handleDownloadPolicy}
                 />
               ))}
             </div>
@@ -831,20 +959,24 @@ export default function PolicyUploadWizard() {
 
 // ─── UPLOAD ROW ITEM COMPONENT ─────────────────────────────────────────
 
-function PolicyUploadRow({ policy, isCompulsory, onUpload, onAutoFix, onViewReport, onDelete, fixing, onViewUpdatedPolicy }) {
+function PolicyUploadRow({ policy, isCompulsory, onUpload, onAutoFix, onViewReport, onDelete, fixing, onViewUpdatedPolicy, onDownload }) {
   
   const getBadgeStyle = (status) => {
     if (status === "Missing") return { background: "rgba(239, 68, 68, 0.08)", color: "#ef4444", border: "1px solid rgba(239, 68, 68, 0.15)" };
     if (status === "Analyzing...") return { background: "rgba(99, 102, 241, 0.08)", color: "#6366f1", border: "1px solid rgba(99, 102, 241, 0.15)" };
     if (status === "gaps_found") return { background: "rgba(245, 158, 11, 0.08)", color: "#f59e0b", border: "1px solid rgba(245, 158, 11, 0.15)" };
-    return { background: "rgba(16, 185, 129, 0.08)", color: "#10b981", border: "1px solid rgba(16, 185, 129, 0.15)" };
+    if (status === "pending" || status === "PENDING_LEAD_SIGN_OFF") return { background: "rgba(99, 102, 241, 0.08)", color: "#6366f1", border: "1px solid rgba(99, 102, 241, 0.15)" };
+    if (status === "compliant" || status === "APPROVED_PRODUCTION") return { background: "rgba(16, 185, 129, 0.08)", color: "#10b981", border: "1px solid rgba(16, 185, 129, 0.15)" };
+    return { background: "rgba(168, 85, 247, 0.08)", color: "#a855f7", border: "1px solid rgba(168, 85, 247, 0.15)" };
   };
 
   const getStatusText = (status) => {
     if (status === "Missing") return "Missing";
     if (status === "Analyzing...") return "Analyzing...";
     if (status === "gaps_found") return "Gaps Found";
-    return "Compliant";
+    if (status === "pending" || status === "PENDING_LEAD_SIGN_OFF") return "Awaiting Sign-off";
+    if (status === "compliant" || status === "APPROVED_PRODUCTION") return "Approved";
+    return status;
   };
 
   return (
@@ -1024,6 +1156,50 @@ function PolicyUploadRow({ policy, isCompulsory, onUpload, onAutoFix, onViewRepo
           </div>
         )}
 
+        {(policy.status === "pending" || policy.status === "PENDING_LEAD_SIGN_OFF") && (
+          <div style={{ display: "flex", gap: "10px", width: "100%", flexDirection: "column" }}>
+            <div style={{
+              width: "100%",
+              height: "40px",
+              background: "rgba(99, 102, 241, 0.08)",
+              border: "1px solid rgba(99, 102, 241, 0.15)",
+              borderRadius: "8px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              fontSize: "0.85rem",
+              color: "#6366f1",
+              fontWeight: 800
+            }}>
+              ⏳ Awaiting Lead Sign-off
+            </div>
+            
+            {policy.fixedGaps && policy.fixedGaps.length > 0 && (
+              <button
+                onClick={onViewUpdatedPolicy}
+                style={{
+                  width: "100%",
+                  height: "40px",
+                  background: "var(--surface)",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: "8px",
+                  fontSize: "0.8rem",
+                  fontWeight: 800,
+                  color: "var(--text-main)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px"
+                }}
+              >
+                <Eye size={14} /> View Updated Policy
+              </button>
+            )}
+          </div>
+        )}
+
         {policy.status === "compliant" && (
           <div style={{ display: "flex", gap: "10px", width: "100%", flexDirection: "column" }}>
             <div style={{
@@ -1065,6 +1241,69 @@ function PolicyUploadRow({ policy, isCompulsory, onUpload, onAutoFix, onViewRepo
                 <Eye size={14} /> View Updated Policy
               </button>
             )}
+          </div>
+        )}
+
+        {policy.status === "APPROVED_PRODUCTION" && (
+          <div style={{ display: "flex", gap: "10px", width: "100%", flexDirection: "column" }}>
+            <div style={{
+              width: "100%",
+              height: "40px",
+              background: "rgba(16, 185, 129, 0.08)",
+              border: "1px solid rgba(16, 185, 129, 0.15)",
+              borderRadius: "8px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "8px",
+              fontSize: "0.85rem",
+              color: "#10b981",
+              fontWeight: 800
+            }}>
+              <CheckCircle size={15} /> APPROVED
+            </div>
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button
+                onClick={onViewUpdatedPolicy}
+                style={{
+                  flex: 1,
+                  height: "40px",
+                  background: "var(--surface)",
+                  border: "1px solid var(--border-color)",
+                  borderRadius: "8px",
+                  fontSize: "0.8rem",
+                  fontWeight: 800,
+                  color: "var(--text-main)",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px"
+                }}
+              >
+                <Eye size={14} /> View
+              </button>
+              <button
+                onClick={() => onDownload(policy)}
+                style={{
+                  flex: 1,
+                  height: "40px",
+                  background: "rgba(16, 185, 129, 0.08)",
+                  border: "1px solid rgba(16, 185, 129, 0.15)",
+                  color: "#10b981",
+                  borderRadius: "8px",
+                  fontSize: "0.8rem",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px"
+                }}
+              >
+                <Download size={14} /> Download Updated Policy
+              </button>
+            </div>
           </div>
         )}
 

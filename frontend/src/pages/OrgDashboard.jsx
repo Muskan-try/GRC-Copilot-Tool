@@ -70,7 +70,7 @@ export default function OrgDashboard() {
   // Invite Modal States
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("team_lead");
+  const [inviteRole, setInviteRole] = useState("lead");
   const [inviteSubmitting, setInviteSubmitting] = useState(false);
 
   // Fetch Dashboard Metrics
@@ -1039,8 +1039,8 @@ export default function OrgDashboard() {
                           width: "40px",
                           height: "40px",
                           borderRadius: "8px",
-                          background: selectedPolicy.status === "compliant" ? "#dcfce7" : "#fee2e2",
-                          color: selectedPolicy.status === "compliant" ? "#15803d" : "#b91c1c",
+                          background: (selectedPolicy.status === "compliant" || selectedPolicy.status === "APPROVED_PRODUCTION") ? "#dcfce7" : (selectedPolicy.status === "pending" || selectedPolicy.status === "PENDING_LEAD_SIGN_OFF") ? "#dbeafe" : "#fee2e2",
+                          color: (selectedPolicy.status === "compliant" || selectedPolicy.status === "APPROVED_PRODUCTION") ? "#15803d" : (selectedPolicy.status === "pending" || selectedPolicy.status === "PENDING_LEAD_SIGN_OFF") ? "#1d4ed8" : "#b91c1c",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center"
@@ -1122,16 +1122,24 @@ export default function OrgDashboard() {
                         alignItems: "center",
                         gap: "12px",
                         padding: "16px",
-                        background: selectedPolicy.status === "compliant" ? "rgba(16, 185, 129, 0.05)" : "rgba(239, 68, 68, 0.05)",
+                        background: (selectedPolicy.status === "compliant" || selectedPolicy.status === "APPROVED_PRODUCTION") ? "rgba(16, 185, 129, 0.05)" : (selectedPolicy.status === "pending" || selectedPolicy.status === "PENDING_LEAD_SIGN_OFF") ? "rgba(59, 130, 246, 0.05)" : "rgba(239, 68, 68, 0.05)",
                         borderRadius: "12px",
-                        border: `1px solid ${selectedPolicy.status === "compliant" ? "rgba(16, 185, 129, 0.15)" : "rgba(239, 68, 68, 0.15)"}`
+                        border: `1px solid ${(selectedPolicy.status === "compliant" || selectedPolicy.status === "APPROVED_PRODUCTION") ? "rgba(16, 185, 129, 0.15)" : (selectedPolicy.status === "pending" || selectedPolicy.status === "PENDING_LEAD_SIGN_OFF") ? "rgba(59, 130, 246, 0.15)" : "rgba(239, 68, 68, 0.15)"}`
                       }}>
-                        {selectedPolicy.status === "compliant" ? (
+                        {(selectedPolicy.status === "compliant" || selectedPolicy.status === "APPROVED_PRODUCTION") ? (
                           <>
                             <CheckCircle2 size={24} color="#10b981" />
                             <div style={{ textAlign: "left" }}>
                               <strong style={{ fontSize: "0.85rem", color: "#065f46", display: "block" }}>Fully Compliant Policy</strong>
                               <span style={{ fontSize: "0.75rem", color: "#047857" }}>The AI Agent verified that this policy satisfies all framework control objectives.</span>
+                            </div>
+                          </>
+                        ) : (selectedPolicy.status === "pending" || selectedPolicy.status === "PENDING_LEAD_SIGN_OFF") ? (
+                          <>
+                            <Loader2 size={24} color="#3b82f6" style={{ animation: "spin 2s linear infinite" }} />
+                            <div style={{ textAlign: "left" }}>
+                              <strong style={{ fontSize: "0.85rem", color: "#1e3a8a", display: "block" }}>Awaiting Lead Sign-off</strong>
+                              <span style={{ fontSize: "0.75rem", color: "#1d4ed8" }}>The AI-remediated draft policy is currently awaiting sign-off from the Team Lead.</span>
                             </div>
                           </>
                         ) : (
@@ -1282,8 +1290,8 @@ export default function OrgDashboard() {
                               width: "36px", 
                               height: "36px", 
                               borderRadius: "50%", 
-                              background: member.role === "owner" ? "rgba(16, 185, 129, 0.08)" : member.role === "team_lead" ? "rgba(99, 102, 241, 0.08)" : "rgba(37, 99, 235, 0.08)", 
-                              color: member.role === "owner" ? "#10b981" : member.role === "team_lead" ? "#6366f1" : "#2563eb", 
+                              background: member.role === "owner" ? "rgba(16, 185, 129, 0.08)" : member.role === "lead" ? "rgba(99, 102, 241, 0.08)" : "rgba(37, 99, 235, 0.08)", 
+                              color: member.role === "owner" ? "#10b981" : member.role === "lead" ? "#6366f1" : "#2563eb", 
                               display: "flex", 
                               alignItems: "center", 
                               justifyContent: "center", 
@@ -1530,8 +1538,8 @@ export default function OrgDashboard() {
                   onChange={(e) => setInviteRole(e.target.value)}
                   style={inputStyle}
                 >
-                  <option value="team_lead">Team Lead (Can assign tasks, review controls)</option>
-                  <option value="team_member">Team Member (Can execute controls, upload evidence)</option>
+                  <option value="lead">Team Lead (Can assign tasks, review controls)</option>
+                  <option value="member">Team Member (Can execute controls, upload evidence)</option>
                 </select>
               </div>
 
@@ -1727,8 +1735,9 @@ function ActivityFlowRow({ initials, user, action, time }) {
 }
 
 function PolicyRow({ title, file, score, status, date, onClick }) {
-  const isCompliant = status === 'compliant';
+  const isCompliant = status === 'compliant' || status === 'APPROVED_PRODUCTION';
   const hasGaps = status === 'gaps_found';
+  const isPending = status === 'pending' || status === 'PENDING_LEAD_SIGN_OFF';
   
   // Status Pill Styles
   let statusBg = "#f1f5f9";
@@ -1738,11 +1747,15 @@ function PolicyRow({ title, file, score, status, date, onClick }) {
   if (isCompliant) {
     statusBg = "#dcfce7";
     statusColor = "#15803d";
-    statusLabel = "Compliant";
+    statusLabel = "Approved";
   } else if (hasGaps) {
     statusBg = "#fee2e2";
     statusColor = "#b91c1c";
     statusLabel = "Gaps Found";
+  } else if (isPending) {
+    statusBg = "#dbeafe";
+    statusColor = "#1d4ed8";
+    statusLabel = "Awaiting Sign-off";
   }
 
   // Score Badge

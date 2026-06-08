@@ -497,7 +497,7 @@ async function runMigrations() {
       policy_name VARCHAR(255) NOT NULL,
       policy_type VARCHAR(50) NOT NULL CHECK (policy_type IN ('compulsory', 'optional')),
       file_url VARCHAR(500) NOT NULL,
-      status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'analyzed', 'gaps_found', 'compliant')),
+      status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'analyzed', 'gaps_found', 'compliant', 'PENDING_LEAD_SIGN_OFF', 'APPROVED_PRODUCTION')),
       compliance_score DECIMAL(5,2),
       ai_analysis_report JSONB,
       created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -530,6 +530,15 @@ async function runMigrations() {
     logger.info(`Migration completed: ${result.rows[0]?.count || 0} org_admin members are active`);
   } catch (e) {
     logger.warn('Migration: Failed to add assessment creators to org_members:', e.message);
+  }
+
+  // Migration: Update policies table status check constraint to support new statuses
+  try {
+    logger.info('Running migration: Updating policies status constraint...');
+    await query('ALTER TABLE policies DROP CONSTRAINT IF EXISTS policies_status_check');
+    await query(`ALTER TABLE policies ADD CONSTRAINT policies_status_check CHECK (status IN ('pending', 'analyzed', 'gaps_found', 'compliant', 'PENDING_LEAD_SIGN_OFF', 'APPROVED_PRODUCTION'))`);
+  } catch (e) {
+    logger.warn('Migration: Failed to update policies status constraint:', e.message);
   }
 
   logger.info('Database migrations completed successfully');

@@ -22,7 +22,7 @@ router.post(
       .withMessage('Password must be at least 8 characters long'),
     body('org_name').trim().notEmpty().withMessage('Organization name required'),
     body('role').optional().custom((val) => {
-      if (val && !['admin', 'org_admin', 'team_lead', 'team_member'].includes(val)) {
+      if (val && !['admin', 'org_admin', 'team_lead', 'team_member', 'member', 'lead'].includes(val)) {
         throw new Error('Invalid role');
       }
       return true;
@@ -36,6 +36,8 @@ router.post(
       }
 
       let { email, password, org_name, role } = req.body;
+      if (role === 'member') role = 'team_member';
+      if (role === 'lead') role = 'team_lead';
       if (!role || !['admin', 'org_admin', 'team_lead', 'team_member'].includes(role)) {
         role = 'team_member';
       }
@@ -47,8 +49,11 @@ router.post(
         logger.warn(`PostgreSQL is offline, activating standalone registration fallback: ${dbErr.message}`);
         const mockUserId = "00000000-0000-0000-0000-000000000001";
         const mockOrgId = "00000000-0000-0000-0000-000000000002";
+        let jwtRole = role;
+        if (jwtRole === 'team_member') jwtRole = 'member';
+        if (jwtRole === 'team_lead') jwtRole = 'lead';
         const token = jwt.sign(
-          { user_id: mockUserId, email: email, role: role, org_id: mockOrgId },
+          { user_id: mockUserId, email: email, role: jwtRole, org_id: mockOrgId },
           process.env.JWT_SECRET || 'fallback-secret-2026',
           { expiresIn: 86400 }
         );
@@ -56,7 +61,7 @@ router.post(
         return res.status(201).json({
           user_id: mockUserId,
           email: email,
-          role: role,
+          role: jwtRole,
           org_id: mockOrgId,
           token,
           expires_in: 86400,
@@ -113,8 +118,12 @@ router.post(
       );
 
       // Issue JWT
+      let jwtRole = user.role;
+      if (jwtRole === 'team_member') jwtRole = 'member';
+      if (jwtRole === 'team_lead') jwtRole = 'lead';
+
       const token = jwt.sign(
-        { user_id: user.id, email: user.email, role: user.role, org_id: orgId },
+        { user_id: user.id, email: user.email, role: jwtRole, org_id: orgId },
         process.env.JWT_SECRET || 'fallback-secret-2026',
         { expiresIn: parseInt(process.env.JWT_EXPIRES_IN) || 86400 }
       );
@@ -124,7 +133,7 @@ router.post(
       res.status(201).json({
         user_id: user.id,
         email: user.email,
-        role: user.role,
+        role: jwtRole,
         org_id: orgId,
         token,
         expires_in: parseInt(process.env.JWT_EXPIRES_IN) || 86400,
@@ -163,7 +172,7 @@ router.post(
         const mockUserId = "00000000-0000-0000-0000-000000000001";
         const mockOrgId = "00000000-0000-0000-0000-000000000002";
         const token = jwt.sign(
-          { user_id: mockUserId, email: email, role: 'team_member', org_id: mockOrgId },
+          { user_id: mockUserId, email: email, role: 'member', org_id: mockOrgId },
           process.env.JWT_SECRET || 'fallback-secret-2026',
           { expiresIn: 86400 }
         );
@@ -172,7 +181,7 @@ router.post(
           token,
           user_id: mockUserId,
           email: email,
-          role: 'team_member',
+          role: 'member',
           org_id: mockOrgId,
           org_name: "Standalone Org",
           expires_in: 86400,
@@ -235,8 +244,12 @@ router.post(
         }
       }
 
+      let jwtRole = userRole;
+      if (jwtRole === 'team_member') jwtRole = 'member';
+      if (jwtRole === 'team_lead') jwtRole = 'lead';
+
       const token = jwt.sign(
-        { user_id: user.id, email: user.email, role: userRole, org_id: orgId },
+        { user_id: user.id, email: user.email, role: jwtRole, org_id: orgId },
         process.env.JWT_SECRET || 'fallback-secret-2026',
         { expiresIn: parseInt(process.env.JWT_EXPIRES_IN) || 86400 }
       );
@@ -247,7 +260,7 @@ router.post(
         token,
         user_id: user.id,
         email: user.email,
-        role: userRole,
+        role: jwtRole,
         org_id: orgId,
         org_name: orgName,
         expires_in: parseInt(process.env.JWT_EXPIRES_IN) || 86400,
@@ -324,10 +337,14 @@ router.get('/profile', authenticate, async (req, res, next) => {
       }
       assessCountRows = countRes.rows;
 
+      let profileRole = userRole;
+      if (profileRole === 'team_member') profileRole = 'member';
+      if (profileRole === 'team_lead') profileRole = 'lead';
+
       res.json({
         user_id: user.id,
         email: user.email,
-        role: userRole,
+        role: profileRole,
         created_at: user.created_at,
         organization: orgData ? {
           org_id: orgData.org_id,
@@ -417,10 +434,14 @@ async function oauthCallback(req, res) {
   );
   const orgId = orgResult.rows[0]?.id || null;
 
+  let jwtRole = req.user.role;
+  if (jwtRole === 'team_member') jwtRole = 'member';
+  if (jwtRole === 'team_lead') jwtRole = 'lead';
+
   const payload = {
     user_id: req.user.id,
     email: req.user.email,
-    role: req.user.role,
+    role: jwtRole,
     org_id: orgId
   };
   const token = jwt.sign(

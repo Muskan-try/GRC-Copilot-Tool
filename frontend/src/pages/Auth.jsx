@@ -35,14 +35,14 @@ const ROLES = [
     icon: <UserCog size={28} />
   },
   {
-    id: "team_lead",
-    title: "Team Lead",
+    id: "lead",
+    title: "Team Lead (Checker)",
     description: "Lead specific assessments, assign tasks, and review team responses.",
     icon: <Briefcase size={28} />
   },
   {
-    id: "team_member",
-    title: "Team Member",
+    id: "member",
+    title: "Team Member (Maker)",
     description: "Execute assigned controls, provide evidence, and participate in audits.",
     icon: <Users size={28} />
   }
@@ -71,11 +71,11 @@ export default function Auth() {
       navigate('/admin-dashboard');
     } else if (role === 'org_admin' || role === 'owner') {
       navigate('/org-dashboard');
-    } else if (role === 'team_member') {
-      // For team members, they see a read-only version of the main flow
+    } else if (role === 'lead') {
+      // For team leads (checkers), they see a read-only validation portal
       navigate('/start'); 
     } else {
-      // Default fallback for team_lead or others
+      // Default fallback for team member (maker) or others
       navigate('/start');
     }
   };
@@ -381,7 +381,7 @@ export default function Auth() {
                   <div className="field">
                     <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.9rem", color: "#4b5563", fontWeight: 600, marginBottom: "6px" }}>
                       <Building2 size={14} /> 
-                      {selectedRole === 'team_lead' || selectedRole === 'team_member' 
+                      {selectedRole === 'lead' || selectedRole === 'member' 
                         ? "Enter Your Organization" 
                         : "Organization Name"}
                     </label>
@@ -398,7 +398,7 @@ export default function Auth() {
                           fontSize: "0.95rem"
                         }}
                         type="text"
-                        placeholder={selectedRole === 'team_lead' || selectedRole === 'team_member' 
+                        placeholder={selectedRole === 'lead' || selectedRole === 'member' 
                           ? "e.g. Acme Corporation" 
                           : "Enter organization name"}
                         value={form.orgName}

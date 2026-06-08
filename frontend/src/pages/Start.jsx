@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { logout, getCurrentUser, listDashboards, deleteAssessmentV2, getProfile, setCurrentUser } from "../api";
+import { logout, getCurrentUser, listDashboards, deleteAssessmentV2, getProfile, setCurrentUser, listPolicies, listPendingFixes, approvePolicy, rejectPolicy, approveResponse, rejectResponse, listPendingPolicies } from "../api";
 import { useToast } from "../components/Toast";
 import { useTheme } from "../contexts/ThemeContext";
 
@@ -118,6 +118,9 @@ export default function Start() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [deleteAssessmentId, setDeleteAssessmentId] = useState(null);
+  const [pendingPolicies, setPendingPolicies] = useState([]);
+  const [pendingFixes, setPendingFixes] = useState([]);
+  const [viewingPolicy, setViewingPolicy] = useState(null);
 
   const fetchStats = async () => {
     setRefreshing(true);
@@ -143,11 +146,62 @@ export default function Start() {
 
       const res = await listDashboards();
       setAssessments(res.assessments || []);
+
+      // If user is team lead (lead), fetch pending checks
+      const currentUser = getCurrentUser();
+      if (currentUser?.role === 'lead') {
+        const [policiesData, fixesData] = await Promise.all([
+          listPendingPolicies().catch(() => ({ policies: [] })),
+          listPendingFixes().catch(() => ({ fixes: [] }))
+        ]);
+        setPendingPolicies(policiesData.policies || []);
+        setPendingFixes(fixesData.fixes || fixesData.responses || []);
+      }
     } catch (err) {
       console.error("Failed to fetch dashboard stats:", err);
       toast.addToast("Failed to load assessments", "error");
     } finally {
       setTimeout(() => setRefreshing(false), 400);
+    }
+  };
+
+  const handleApprovePolicy = async (policyId) => {
+    try {
+      await approvePolicy(policyId);
+      toast.addToast("Policy approved successfully", "success");
+      fetchStats();
+    } catch (err) {
+      toast.addToast("Failed to approve policy: " + err.message, "error");
+    }
+  };
+
+  const handleRejectPolicy = async (policyId) => {
+    try {
+      await rejectPolicy(policyId);
+      toast.addToast("Policy marked as gaps found", "warning");
+      fetchStats();
+    } catch (err) {
+      toast.addToast("Failed to reject policy: " + err.message, "error");
+    }
+  };
+
+  const handleApproveResponse = async (responseId) => {
+    try {
+      await approveResponse(responseId);
+      toast.addToast("Fix response approved successfully", "success");
+      fetchStats();
+    } catch (err) {
+      toast.addToast("Failed to approve response: " + err.message, "error");
+    }
+  };
+
+  const handleRejectResponse = async (responseId) => {
+    try {
+      await rejectResponse(responseId);
+      toast.addToast("Fix response marked as rejected", "warning");
+      fetchStats();
+    } catch (err) {
+      toast.addToast("Failed to reject response: " + err.message, "error");
     }
   };
 
@@ -262,12 +316,12 @@ export default function Start() {
               marginBottom: 20,
             }}
           >
-            {user?.role === 'team_member' ? "Read-Only Portal" : "Assessments"}
+            {user?.role === 'lead' ? "Read-Only Portal" : "Assessments"}
           </h2>
         </div>
 
         <nav style={{ flex: 1 }}>
-          {user?.role === 'team_member' ? (
+          {user?.role === 'lead' ? (
             <button
               style={{
                 width: "100%",
@@ -487,17 +541,95 @@ export default function Start() {
 
         {/* CENTER CONTENT */}
         <div style={{ padding: "60px 40px", display: "flex", flexDirection: "column", alignItems: "center" }}>
-          {user?.role === 'team_member' ? (
+          {user?.role === 'lead' ? (
             <div style={{ maxWidth: 1000, width: "100%" }}>
               <div style={{ background: "linear-gradient(135deg, #1e293b 0%, #0f172a 100%)", padding: 32, borderRadius: 24, color: "#fff", marginBottom: 40, border: "1px solid var(--cyber-border)", boxShadow: "0 10px 30px rgba(0,0,0,0.15)", position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", top: -50, right: -50, width: 200, height: 200, background: "radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0) 70%)", borderRadius: "50%" }} />
                 <div style={{ display: "inline-block", background: "rgba(59, 130, 246, 0.15)", color: "var(--primary)", padding: "6px 14px", borderRadius: 8, fontSize: "0.7rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 16 }}>
-                  Read-Only Access Portal
+                  Checker Validation Portal
                 </div>
                 <h2 style={{ margin: 0, fontSize: "2rem", fontWeight: 900, color: "#fff", textAlign: "left" }}>GRC Compliance Dashboard</h2>
                 <p style={{ color: "#94a3b8", fontSize: "0.95rem", margin: "8px 0 0 0", lineHeight: 1.6, textAlign: "left" }}>
-                  Welcome back! You have active reader credentials. Below is the complete record of compliance assessments, security maturity scores, and generated reports authorized by your Team Lead.
+                  Welcome back, Checker! You have validator credentials. Below is the complete record of compliance assessments and reports, along with items awaiting your review and authorization.
                 </p>
+              </div>
+
+              {/* Checker Alert & Validation Panel */}
+              <div style={{ 
+                background: "var(--bg-subtle, rgba(30, 41, 59, 0.5))", 
+                borderRadius: 20, 
+                border: "1px solid var(--cyber-border)", 
+                padding: 24, 
+                marginBottom: 40,
+                boxShadow: "0 4px 20px rgba(0,0,0,0.05)"
+              }}>
+                <h3 style={{ margin: "0 0 20px 0", fontSize: "1.2rem", fontWeight: 800, color: "var(--text-main)", display: "flex", alignItems: "center", gap: 8 }}>
+                  🔔 Checker Alert & Validation Panel
+                </h3>
+
+                {/* Pending Policy Approval Section — single full-width card */}
+                <div style={{ background: "var(--surface)", border: "1px solid var(--border-color)", borderRadius: 16, padding: 20 }}>
+                  <h4 style={{ margin: "0 0 16px 0", fontSize: "0.95rem", fontWeight: 700, color: "var(--text-main)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span>📄 Pending Policy Approval</span>
+                    <span style={{ background: "var(--primary-subtle, rgba(59, 130, 246, 0.1))", color: "var(--primary)", padding: "2px 8px", borderRadius: 12, fontSize: "0.75rem", fontWeight: 800 }}>
+                      {pendingPolicies.length}
+                    </span>
+                  </h4>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: 320, overflowY: "auto" }}>
+                    {pendingPolicies.length > 0 ? (
+                      pendingPolicies.map(policy => (
+                        <div key={policy.id} style={{ padding: "14px 16px", background: "var(--sidebar-bg)", borderRadius: 12, border: "1px solid var(--border-color)" }}>
+                          {/* Top row: name + type */}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                            <div style={{ flex: 1, minWidth: 0, marginRight: 12 }}>
+                              <div style={{ fontWeight: 700, color: "var(--text-main)", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap", fontSize: "0.85rem" }}>
+                                {policy.policy_name}
+                              </div>
+                              <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 2 }}>
+                                Type: {policy.policy_type || "Standard"}
+                              </div>
+                            </div>
+                            <span style={{ flexShrink: 0, background: "rgba(99, 102, 241, 0.1)", color: "#6366f1", padding: "3px 8px", borderRadius: 6, fontSize: "0.7rem", fontWeight: 800, textTransform: "uppercase" }}>
+                              Awaiting Sign-off
+                            </span>
+                          </div>
+                          {/* Action buttons row */}
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <button
+                              onClick={() => setViewingPolicy(policy)}
+                              style={{ flex: 1, minWidth: 100, padding: "7px 10px", fontSize: "0.75rem", fontWeight: 700, background: "var(--surface)", color: "var(--text-main)", border: "1px solid var(--border-color)", borderRadius: 8, cursor: "pointer", transition: "all 0.2s", display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}
+                              onMouseEnter={e => { e.currentTarget.style.background = "var(--surface-hover)"; e.currentTarget.style.borderColor = "var(--primary)"; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = "var(--surface)"; e.currentTarget.style.borderColor = "var(--border-color)"; }}
+                            >
+                              👁 View Updated Policy
+                            </button>
+                            <button
+                              onClick={() => handleApprovePolicy(policy.id)}
+                              style={{ flex: 1, minWidth: 80, padding: "7px 10px", fontSize: "0.75rem", fontWeight: 700, background: "#10b981", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", transition: "opacity 0.2s" }}
+                              onMouseEnter={e => e.currentTarget.style.opacity = 0.85}
+                              onMouseLeave={e => e.currentTarget.style.opacity = 1}
+                            >
+                              ✓ Approve
+                            </button>
+                            <button
+                              onClick={() => handleRejectPolicy(policy.id)}
+                              style={{ flex: 1, minWidth: 80, padding: "7px 10px", fontSize: "0.75rem", fontWeight: 700, background: "#ef4444", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", transition: "opacity 0.2s" }}
+                              onMouseEnter={e => e.currentTarget.style.opacity = 0.85}
+                              onMouseLeave={e => e.currentTarget.style.opacity = 1}
+                            >
+                              ✗ Reject
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ padding: "30px", textAlign: "center", color: "var(--text-muted)", fontSize: "0.8rem", fontStyle: "italic" }}>
+                        No pending policy approvals.
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* STATS OVERVIEW */}
@@ -805,6 +937,153 @@ export default function Start() {
 
       </div>
 
+      {/* POLICY VIEWER MODAL — Lead reads the AI-remediated report before approving */}
+      {viewingPolicy && (
+        <div
+          onClick={() => setViewingPolicy(null)}
+          style={{
+            position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+            background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 1200
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: "var(--surface)",
+              borderRadius: 20,
+              border: "1px solid var(--cyber-border)",
+              boxShadow: "0 24px 60px rgba(0,0,0,0.25)",
+              width: "min(820px, 92vw)",
+              maxHeight: "85vh",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden"
+            }}
+          >
+            {/* Header */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "22px 28px",
+              borderBottom: "1px solid var(--border-color)",
+              background: "var(--surface)"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: "1.5rem" }}>📄</span>
+                <div>
+                  <div style={{ fontSize: "1.1rem", fontWeight: 800, color: "var(--text-main)" }}>
+                    {viewingPolicy.policy_name}
+                  </div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted)", marginTop: 2 }}>
+                    AI-Remediated Draft — Awaiting Lead Sign-off
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingPolicy(null)}
+                style={{ background: "none", border: "none", fontSize: "1.4rem", cursor: "pointer", color: "var(--text-light)", lineHeight: 1 }}
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Score bar */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "14px 28px",
+              background: "var(--surface-hover)",
+              borderBottom: "1px solid var(--border-color)"
+            }}>
+              <span style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: 600 }}>Compliance Score after remediation:</span>
+              <span style={{
+                fontSize: "1.35rem", fontWeight: 900,
+                color: viewingPolicy.compliance_score >= 80 ? "#10b981" : viewingPolicy.compliance_score >= 50 ? "#f59e0b" : "#ef4444"
+              }}>
+                {viewingPolicy.compliance_score !== null && viewingPolicy.compliance_score !== undefined
+                  ? `${parseFloat(viewingPolicy.compliance_score)}%`
+                  : "N/A"}
+              </span>
+            </div>
+
+            {/* Body — gaps / remediations */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px", display: "flex", flexDirection: "column", gap: 16 }}>
+              {viewingPolicy.ai_analysis_report?.gaps && viewingPolicy.ai_analysis_report.gaps.length > 0 ? (
+                viewingPolicy.ai_analysis_report.gaps.map((gap, i) => {
+                  const isObj = typeof gap === "object" && gap !== null;
+                  const title = isObj ? gap.gap_title : `Gap #${i + 1}`;
+                  const desc = isObj ? gap.description : gap;
+                  const remediation = isObj ? gap.remediation_plan : viewingPolicy.ai_analysis_report.recommendations?.[i];
+                  const priority = isObj ? gap.priority : "High";
+                  const prio = String(priority).toLowerCase();
+                  const prioColor = prio === "high" || prio === "critical" ? "#ef4444" : prio === "medium" ? "#f59e0b" : "#10b981";
+                  return (
+                    <div key={i} style={{
+                      background: "var(--surface-hover)",
+                      border: "1px solid var(--border-color)",
+                      borderLeft: `4px solid ${prioColor}`,
+                      borderRadius: 12,
+                      padding: "18px 20px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontWeight: 800, fontSize: "0.95rem", color: "var(--text-main)" }}>{title}</span>
+                        <span style={{ fontSize: "0.7rem", fontWeight: 800, textTransform: "uppercase", color: prioColor, background: `${prioColor}18`, padding: "3px 8px", borderRadius: 6 }}>
+                          {String(priority).toUpperCase()}
+                        </span>
+                      </div>
+                      {desc && <p style={{ margin: 0, fontSize: "0.875rem", color: "var(--text-muted)", lineHeight: 1.5 }}>{desc}</p>}
+                      {remediation && (
+                        <div style={{ marginTop: 4, paddingTop: 10, borderTop: "1px dashed var(--border-color)" }}>
+                          <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.05em" }}>✨ Remediation Plan:</span>
+                          <p style={{ margin: "4px 0 0 0", fontSize: "0.875rem", color: "var(--text-main)", lineHeight: 1.5 }}>{remediation}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div style={{ textAlign: "center", padding: "40px", color: "var(--text-muted)", fontSize: "0.9rem", fontStyle: "italic" }}>
+                  No gaps found — this policy is fully remediated and ready for approval.
+                </div>
+              )}
+            </div>
+
+            {/* Footer actions */}
+            <div style={{
+              display: "flex", gap: 12, padding: "18px 28px",
+              borderTop: "1px solid var(--border-color)",
+              background: "var(--surface)"
+            }}>
+              <button
+                onClick={() => { handleApprovePolicy(viewingPolicy.id); setViewingPolicy(null); }}
+                style={{ flex: 1, padding: "12px", fontSize: "0.9rem", fontWeight: 800, background: "#10b981", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer", transition: "opacity 0.2s" }}
+                onMouseEnter={e => e.currentTarget.style.opacity = 0.85}
+                onMouseLeave={e => e.currentTarget.style.opacity = 1}
+              >
+                ✓ Approve Policy
+              </button>
+              <button
+                onClick={() => { handleRejectPolicy(viewingPolicy.id); setViewingPolicy(null); }}
+                style={{ flex: 1, padding: "12px", fontSize: "0.9rem", fontWeight: 800, background: "#ef4444", color: "#fff", border: "none", borderRadius: 10, cursor: "pointer", transition: "opacity 0.2s" }}
+                onMouseEnter={e => e.currentTarget.style.opacity = 0.85}
+                onMouseLeave={e => e.currentTarget.style.opacity = 1}
+              >
+                ✗ Reject
+              </button>
+              <button
+                onClick={() => setViewingPolicy(null)}
+                style={{ padding: "12px 20px", fontSize: "0.9rem", fontWeight: 700, background: "none", border: "1px solid var(--border-color)", color: "var(--text-light)", borderRadius: 10, cursor: "pointer" }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* OVERLAY MODAL */}
       {overlayInfo && (
         <div
@@ -912,7 +1191,7 @@ export default function Start() {
               </div>
 
               <div style={{ marginTop: 24, display: "flex", gap: 16 }}>
-                {user?.role === 'team_member' ? (
+                {user?.role === 'lead' ? (
                   <div style={{ width: '100%', padding: '16px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', textAlign: 'center', color: 'var(--danger)', fontSize: '0.85rem', fontWeight: 600 }}>
                     Read-Only Access: You do not have permission to start assessments.
                   </div>
@@ -1032,9 +1311,9 @@ export default function Start() {
                                                          style={{ padding: '8px 16px', fontSize: '0.8rem', height: 'auto', width: 'auto', borderRadius: 8 }}
                                                          onClick={() => navigate(a.status === 'complete' ? `/dashboard-v2/${a.id}` : `/questionnaire-enhanced/${a.id}`)}
                                                      >
-                                                         {a.status === 'complete' ? 'View Results' : user?.role === 'team_member' ? 'View Progress' : 'Continue'}
+                                                         {a.status === 'complete' ? 'View Results' : user?.role === 'lead' ? 'View Progress' : 'Continue'}
                                                      </button>
-                                                     {a.status !== 'complete' && user?.role !== 'team_member' && (
+                                                     {a.status !== 'complete' && user?.role !== 'lead' && (
                                                          <button 
                                                              className="btn" 
                                                              style={{ 

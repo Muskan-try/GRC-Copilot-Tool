@@ -85,6 +85,311 @@ async def upload_policy(file: UploadFile = File(...)):
         logger.error(f"File upload failed: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to upload policy: {str(e)}")
 
+def generate_rule_based_analysis(policy_text: str, selected_framework: str) -> dict:
+    """
+    Fallback rule-based compliance analyzer.
+    Analyzes policy_text against selected_framework by checking keyword coverage
+    and generating standard gaps/remediations for missing controls.
+    """
+    import re
+    logger.info(f"Using rule-based fallback analysis for framework: {selected_framework}")
+    
+    # Normalize framework name
+    fw = str(selected_framework).lower()
+    
+    # Define framework baselines: list of requirements, their description, priority, keywords to look for, and remediation plan
+    baseline = []
+    
+    if "hipaa" in fw:
+        baseline = [
+            {
+                "gap_title": "Designated Security Official",
+                "description": "Lack of a formally designated Security Official responsible for the development and implementation of security policies and procedures (164.308(a)(2)).",
+                "priority": "High",
+                "keywords": ["security officer", "security official", "ciso", "information security manager", "security role"],
+                "remediation_plan": "Formally designate a Security Officer and document their roles, responsibilities, and authority regarding ePHI protection."
+            },
+            {
+                "gap_title": "Risk Analysis and Management",
+                "description": "No documented process for conducting regular, comprehensive risk analyses to identify vulnerabilities to ePHI (164.308(a)(1)(ii)(A)).",
+                "priority": "High",
+                "keywords": ["risk analysis", "risk assessment", "risk management", "vulnerability assessment", "threat modeling"],
+                "remediation_plan": "Establish a policy and procedure to conduct and document a comprehensive security risk analysis at least annually."
+            },
+            {
+                "gap_title": "Workforce Security Awareness Training",
+                "description": "Absence of mandatory and regular security awareness training programs for all workforce members handling ePHI (164.308(a)(5)).",
+                "priority": "Medium",
+                "keywords": ["awareness training", "security training", "workforce training", "education", "training program"],
+                "remediation_plan": "Implement a mandatory annual security awareness training program for all employees with access to ePHI, and maintain completion records."
+            },
+            {
+                "gap_title": "Contingency Planning",
+                "description": "Lack of comprehensive contingency plans covering data backup, disaster recovery, and emergency mode operations (164.308(a)(7)).",
+                "priority": "High",
+                "keywords": ["contingency plan", "disaster recovery", "backup", "data backup", "business continuity", "emergency mode"],
+                "remediation_plan": "Develop, document, and test a comprehensive Contingency Plan, including daily automated backups, a disaster recovery site, and emergency procedures."
+            },
+            {
+                "gap_title": "Encryption of ePHI at Rest and in Transit",
+                "description": "No clear policy or enforcement mechanism for encrypting sensitive electronic protected health information (ePHI) during storage and transmission (164.312(a)(2)(iv) and 164.312(e)(2)(ii)).",
+                "priority": "High",
+                "keywords": ["encrypt", "encryption", "tls", "ssl", "aes", "transit", "rest", "secure transmission"],
+                "remediation_plan": "Enforce AES-256 encryption for all ePHI at rest and TLS 1.3/1.2 for all ePHI in transit across the organization."
+            },
+            {
+                "gap_title": "Audit Controls and Activity Monitoring",
+                "description": "Lack of hardware, software, or procedural mechanisms that record and examine activity in systems containing or using ePHI (164.312(b)).",
+                "priority": "Medium",
+                "keywords": ["audit log", "activity monitoring", "access log", "audit control", "log review", "siem"],
+                "remediation_plan": "Implement centralized logging for all systems containing ePHI, and establish procedures for weekly review of audit logs."
+            },
+            {
+                "gap_title": "Automatic Logoff / Idle Timeout",
+                "description": "Absence of electronic procedures to terminate active sessions after a predetermined period of inactivity (164.312(a)(2)(iii)).",
+                "priority": "Medium",
+                "keywords": ["automatic logoff", "timeout", "inactivity", "idle session", "session termination", "lock screen"],
+                "remediation_plan": "Configure automatic screen locks and session timeouts of 15 minutes or less on all workstations and portals accessing ePHI."
+            },
+            {
+                "gap_title": "Facility Access Controls",
+                "description": "Lack of physical access controls to limit access to electronic information systems and the facility or facilities in which they are housed (164.310(a)(1)).",
+                "priority": "Medium",
+                "keywords": ["physical access", "facility access", "badge", "visitor log", "biometric", "server room", "keycard"],
+                "remediation_plan": "Restrict physical access to data centers and server rooms to authorized personnel using keycards, visitor logs, and video surveillance."
+            },
+            {
+                "gap_title": "Breach Notification Process",
+                "description": "No documented policy or procedure for identifying, assessing, and notifying individuals and HHS in the event of an ePHI breach (164.404 / 164.410).",
+                "priority": "High",
+                "keywords": ["breach notification", "incident notification", "hhs", "60 days", "notification process", "reporting breach"],
+                "remediation_plan": "Draft a formal Breach Notification Policy detailing roles, criteria for notification, templates, and the mandated 60-day reporting timeline."
+            }
+        ]
+    elif "iso" in fw or "27001" in fw:
+        baseline = [
+            {
+                "gap_title": "Information Security Policies",
+                "description": "Lack of defined topic-specific policies (e.g., access control, encryption, remote work) supporting the high-level security policy (A.5.1).",
+                "priority": "Medium",
+                "keywords": ["topic-specific", "security policies", "policy review", "policy approval"],
+                "remediation_plan": "Create, approve, and regularly review a set of topic-specific policies covering access control, cryptography, and clean desk/clean screen rules."
+            },
+            {
+                "gap_title": "Roles and Responsibilities Definition",
+                "description": "Roles and responsibilities for information security are not clearly allocated or documented across the organization (A.5.2).",
+                "priority": "Medium",
+                "keywords": ["roles", "responsibilities", "security organization", "ownership", "allocation of roles"],
+                "remediation_plan": "Define a clear information security organization chart and assign security responsibilities within job descriptions."
+            },
+            {
+                "gap_title": "Identity and Access Management",
+                "description": "No formal user provisioning or de-provisioning process, or clear identity verification requirements (A.5.15).",
+                "priority": "High",
+                "keywords": ["identity management", "provisioning", "deprovisioning", "user registration", "access review"],
+                "remediation_plan": "Establish a formal user lifecycle management procedure, including manager approvals for role changes and immediate revocation upon exit."
+            },
+            {
+                "gap_title": "Multi-Factor Authentication",
+                "description": "Absence of secure authentication mechanisms such as Multi-Factor Authentication (MFA) for accessing sensitive systems (A.8.5).",
+                "priority": "High",
+                "keywords": ["mfa", "2fa", "multi-factor", "secure authentication", "biometric", "passwordless"],
+                "remediation_plan": "Enforce Multi-Factor Authentication (MFA) for all user logins, especially for remote access and administrative portals."
+            },
+            {
+                "gap_title": "User Endpoint Device Control",
+                "description": "No documented policy or mobile device management (MDM) constraints for bring-your-own-device (BYOD) or corporate endpoints (A.8.1).",
+                "priority": "Medium",
+                "keywords": ["endpoint device", "mdm", "mobile device", "byod", "endpoint security", "laptop control"],
+                "remediation_plan": "Implement a BYOD and Endpoint Security Policy, and enroll all corporate assets in a centralized MDM system."
+            },
+            {
+                "gap_title": "Regular Backup Testing",
+                "description": "Lack of procedures for taking regular backups or verifying restore capabilities through periodic tests (A.8.13).",
+                "priority": "High",
+                "keywords": ["backup", "restore", "data backup", "backup test", "recovery testing"],
+                "remediation_plan": "Configure automated daily backups with offsite replication, and perform simulated restore testing every quarter."
+            },
+            {
+                "gap_title": "Use of Cryptography",
+                "description": "No central policy on the use of cryptography, key management rules, or permitted cipher suites (A.8.24).",
+                "priority": "High",
+                "keywords": ["cryptography", "encryption policy", "key management", "cipher suite", "cryptographic keys"],
+                "remediation_plan": "Define a Cryptographic Policy mandating AES-256 for storage and TLS 1.3 for data transmission, including key rotation guidelines."
+            },
+            {
+                "gap_title": "Logging and Monitoring",
+                "description": "Audit logs recording user activities, exceptions, and security events are not produced, kept, or regularly reviewed (A.8.15 / A.8.16).",
+                "priority": "Medium",
+                "keywords": ["audit log", "log review", "logging", "monitoring", "siem", "event log"],
+                "remediation_plan": "Deploy a centralized log aggregation tool (SIEM) and implement automated alerting for unauthorized access attempts."
+            },
+            {
+                "gap_title": "Information Deletion and Disposal",
+                "description": "Lack of secure deletion procedures for data that has reached the end of its retention period (A.8.10).",
+                "priority": "Low",
+                "keywords": ["deletion", "disposal", "retention period", "shredding", "secure wipe"],
+                "remediation_plan": "Define a Data Retention and Disposal Policy, and implement secure wiping or physical destruction for retired storage media."
+            }
+        ]
+    elif "gdpr" in fw:
+        baseline = [
+            {
+                "gap_title": "Data Minimization and storage limitation",
+                "description": "Failure to outline data minimization principles or maximum storage/retention limits for personal data processing (Art 5).",
+                "priority": "Medium",
+                "keywords": ["minimization", "storage limitation", "retention limit", "data retention", "processing limit"],
+                "remediation_plan": "Update internal policies to explicitly define retention periods for each category of personal data and implement automated purging."
+            },
+            {
+                "gap_title": "Lawful Basis for Processing",
+                "description": "Lack of clearly documented legal bases (such as consent or legitimate interest) for all personal data processing activities (Art 6).",
+                "priority": "High",
+                "keywords": ["lawful basis", "consent", "legitimate interest", "legal basis", "processing basis"],
+                "remediation_plan": "Document a processing register (Article 30 ROPA) mapping every personal data category to its corresponding lawful basis."
+            },
+            {
+                "gap_title": "Privacy Notice transparency",
+                "description": "Absence of a comprehensive, customer-facing privacy policy describing what data is collected, processed, and shared (Art 13/14).",
+                "priority": "High",
+                "keywords": ["privacy notice", "privacy policy", "disclosure", "transparency", "information to be provided"],
+                "remediation_plan": "Publish an updated Privacy Notice on the public website detailing rights, categories of data, and contact info of the DPO/representative."
+            },
+            {
+                "gap_title": "Data Subject Access Request (DSAR) Procedure",
+                "description": "No formal procedure or dedicated contact points for handling data subject rights, including access, correction, and deletion requests (Art 15/17).",
+                "priority": "High",
+                "keywords": ["subject access request", "dsar", "right of access", "right to erasure", "forgotten", "data subject rights"],
+                "remediation_plan": "Create an internal DSAR fulfillment playbook ensuring responses are delivered within the statutory 30-day window."
+            },
+            {
+                "gap_title": "Privacy by Design and Default",
+                "description": "Lack of established procedures to integrate data protection measures into project lifecycles and software development (Art 25).",
+                "priority": "Medium",
+                "keywords": ["privacy by design", "privacy by default", "design and default", "data protection by design"],
+                "remediation_plan": "Embed privacy-by-design checklists into the product development lifecycle and enforce data minimization by default."
+            },
+            {
+                "gap_title": "Technical and Organizational Security Measures",
+                "description": "Failure to define mandatory technical safeguards such as pseudonymization, encryption, or access controls to protect personal data (Art 32).",
+                "priority": "High",
+                "keywords": ["pseudonymization", "encryption", "technical measures", "organizational measures", "security of processing"],
+                "remediation_plan": "Adopt standard encryption protocols (AES-256) for stored personal data and implement role-based access control (RBAC)."
+            },
+            {
+                "gap_title": "Data Breach Management and 72-Hour Notification",
+                "description": "No incident response procedure ensuring that personal data breaches are assessed and reported to the supervisory authority within 72 hours (Art 33).",
+                "priority": "High",
+                "keywords": ["breach notification", "72 hours", "supervisory authority", "data breach", "breach reporting"],
+                "remediation_plan": "Develop a Data Breach Incident Response Plan containing notification templates and a clear escalation workflow to meet the 72-hour reporting deadline."
+            },
+            {
+                "gap_title": "Data Protection Impact Assessment (DPIA)",
+                "description": "No documented triggers or templates for conducting Data Protection Impact Assessments for high-risk processing operations (Art 35).",
+                "priority": "Medium",
+                "keywords": ["impact assessment", "dpia", "high risk processing", "risk assessment"],
+                "remediation_plan": "Establish a DPIA Policy specifying when assessments are mandatory, and design a template to assess risks to data subjects."
+            }
+        ]
+    else:
+        # Default fallback framework (e.g. SOC 2 or general compliance)
+        baseline = [
+            {
+                "gap_title": "Role-Based Access Control (RBAC)",
+                "description": "Lack of defined user access roles resulting in potential privilege accumulation and unauthorized system access (CC6.1/CC6.2).",
+                "priority": "High",
+                "keywords": ["access control", "rbac", "role-based", "least privilege", "user access", "authorization"],
+                "remediation_plan": "Implement role-based access control policies, ensuring employees only have access permissions necessary for their direct role."
+            },
+            {
+                "gap_title": "Multi-Factor Authentication (MFA)",
+                "description": "No mandatory requirement for Multi-Factor Authentication for local or remote administrative access (CC6.2).",
+                "priority": "High",
+                "keywords": ["mfa", "2fa", "multi-factor", "authentication", "credentials", "passwords"],
+                "remediation_plan": "Enforce MFA for all user logins, especially for administrative portals, code repositories, and production environments."
+            },
+            {
+                "gap_title": "Data Encryption in Transit and at Rest",
+                "description": "Absence of clear directives requiring encryption for sensitive database storage and API communication (CC6.6).",
+                "priority": "High",
+                "keywords": ["encryption", "transit", "rest", "tls", "ssl", "aes", "cryptography"],
+                "remediation_plan": "Enforce TLS 1.2+ for all network communications and AES-256 encryption for data at rest on cloud servers and backups."
+            },
+            {
+                "gap_title": "Centralized Log Auditing and Monitoring",
+                "description": "No system log aggregation or security event monitoring to detect unauthorized actions or anomalous behaviors (CC7.1).",
+                "priority": "Medium",
+                "keywords": ["logging", "monitoring", "audit logs", "siem", "event log", "alerts"],
+                "remediation_plan": "Set up centralized log forwarding to a secure logging server, and establish a weekly review process for critical access logs."
+            },
+            {
+                "gap_title": "Incident Response Plan (IRP)",
+                "description": "Lack of a documented playbook for identifying, containing, and communicating security incidents or system failures (CC7.2).",
+                "priority": "High",
+                "keywords": ["incident response", "incident plan", "irp", "breach notification", "security incident", "recovery playbook"],
+                "remediation_plan": "Draft a formal Incident Response Plan detailing response phases, key roles, communication templates, and reporting timelines."
+            },
+            {
+                "gap_title": "Formal Change Management",
+                "description": "No documented policy or review workflow for code development, testing, and production deployment authorization (CC8.1).",
+                "priority": "Medium",
+                "keywords": ["change control", "change management", "code review", "pull request", "deployment testing"],
+                "remediation_plan": "Implement a Change Management process requiring pull request reviews, automated CI testing, and manager deployment approval."
+            },
+            {
+                "gap_title": "Annual Security Risk Assessment",
+                "description": "Lack of a structured process to identify, analyze, and mitigate internal and external compliance risks (CC9.1).",
+                "priority": "Medium",
+                "keywords": ["risk assessment", "risk analysis", "vulnerability assessment", "threat modeling"],
+                "remediation_plan": "Establish an annual risk assessment procedure led by senior management to identify organizational security risks and track mitigations."
+            }
+        ]
+        
+    # Process text to find matches
+    text_lower = policy_text.lower()
+    
+    gaps = []
+    # Evaluate each requirement in baseline
+    for item in baseline:
+        # Check if keywords are present in the parsed policy text
+        # If any of the keywords are present, we consider the control "addressed"
+        # If none of the keywords are present, we identify it as a GAP
+        matched = False
+        for kw in item["keywords"]:
+            if kw in text_lower:
+                matched = True
+                break
+                
+        if not matched:
+            # It's a gap!
+            gaps.append({
+                "gap_title": item["gap_title"],
+                "description": item["description"],
+                "priority": item["priority"],
+                "remediation_plan": item["remediation_plan"]
+            })
+            
+    # Calculate score based on gaps
+    deductions = 0
+    for g in gaps:
+        priority = g["priority"]
+        if priority == "High":
+            deductions += 15
+        elif priority == "Medium":
+            deductions += 8
+        else:
+            deductions += 3
+            
+    score = max(0, 100 - deductions)
+    recommendations = [g["remediation_plan"] for g in gaps]
+    
+    return {
+        "score": float(score),
+        "gaps": gaps,
+        "recommendations": recommendations,
+        "method": "rule_based_fallback"
+    }
+
 @router.post("/analyze-policy")
 async def analyze_policy(
     file: UploadFile = File(...),
@@ -160,21 +465,28 @@ async def analyze_policy(
             {"role": "user", "content": user_prompt}
         ]
         
-        response_content = await provider.chat_completion(
-            messages=messages,
-            temperature=0.1,
-            max_tokens=4000,
-            json_mode=True
-        )
-        
+        response_content = None
+        try:
+            response_content = await provider.chat_completion(
+                messages=messages,
+                temperature=0.1,
+                max_tokens=4000,
+                json_mode=True
+            )
+        except Exception as api_err:
+            logger.warning(f"Groq API call failed: {api_err}. Falling back to rule-based analysis.")
+            
         if not response_content:
-            raise HTTPException(status_code=500, detail="AI auditor failed to produce response content.")
+            logger.warning("Groq API returned empty response. Falling back to rule-based analysis.")
+            fallback_res = generate_rule_based_analysis(policy_text, selectedFramework)
+            return fallback_res
             
         try:
             parsed_response = json.loads(response_content)
         except json.JSONDecodeError as je:
-            logger.error(f"JSON decode failed for response: {response_content}. Error: {je}")
-            raise HTTPException(status_code=500, detail="AI auditor response was not valid JSON.")
+            logger.error(f"JSON decode failed for response: {response_content}. Error: {je}. Falling back to rule-based analysis.")
+            fallback_res = generate_rule_based_analysis(policy_text, selectedFramework)
+            return fallback_res
             
         gaps = parsed_response.get("gaps", [])
         
@@ -205,9 +517,13 @@ async def analyze_policy(
         raise he
     except Exception as e:
         logger.error(f"Error in policy upload analysis: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to analyze policy: {str(e)}")
-
-
+        # Final safety fallback
+        try:
+            fallback_res = generate_rule_based_analysis(policy_text, selectedFramework)
+            return fallback_res
+        except Exception as fallback_err:
+            logger.error(f"Fallback analysis failed: {fallback_err}")
+            raise HTTPException(status_code=500, detail=f"Failed to analyze policy: {str(e)}")
 
 @router.post("/run")
 async def run_agent(

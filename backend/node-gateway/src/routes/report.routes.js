@@ -1,5 +1,5 @@
 const express = require('express');
-const { query } = require('../config/postgres');
+const { query, verifyReportOwnership, verifyAssessmentOwnership } = require('../config/postgres');
 const { Report } = require('../config/mongo');
 const { authenticate } = require('../middleware/auth');
 const audit = require('../services/audit.service');
@@ -11,17 +11,11 @@ router.get('/:reportId', authenticate, async (req, res, next) => {
   try {
     const { reportId } = req.params;
 
+    // Verify ownership via assessment
+    await verifyReportOwnership(reportId, req.user.org_id);
+
     const report = await Report.findOne({ report_id: reportId });
     if (!report) return res.status(404).json({ error: 'Report not found.' });
-
-    // Verify ownership via assessment
-    const assessResult = await query(
-      'SELECT id FROM assessments WHERE report_id = $1 AND (user_id = $2 OR org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = \'active\'))',
-      [reportId, req.user.user_id]
-    );
-    if (!assessResult.rows.length) {
-      return res.status(403).json({ error: 'Access denied.' });
-    }
 
     res.json(report.toObject());
   } catch (err) {
@@ -38,6 +32,9 @@ router.get('/:reportId/sections/:section', authenticate, async (req, res, next) 
     if (!validSections.includes(section)) {
       return res.status(400).json({ error: `Invalid section. Valid: ${validSections.join(', ')}` });
     }
+
+    // Verify ownership
+    await verifyReportOwnership(reportId, req.user.org_id);
 
     const report = await Report.findOne({ report_id: reportId }, { [section]: 1, compliance_score: 1, risk_level: 1 });
     if (!report) return res.status(404).json({ error: 'Report not found.' });
@@ -60,9 +57,11 @@ router.get('/assessment/:assessmentId', authenticate, async (req, res, next) => 
     const { assessmentId } = req.params;
 
     // Verify ownership
+    await verifyAssessmentOwnership(assessmentId, req.user.org_id);
+
     const assessResult = await query(
-      'SELECT id, framework, status FROM assessments WHERE id = $1 AND (user_id = $2 OR org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = \'active\'))',
-      [assessmentId, req.user.user_id]
+      'SELECT id, framework, status FROM assessments WHERE id = $1 AND org_id = $2',
+      [assessmentId, req.user.org_id]
     );
     if (!assessResult.rows.length) {
       return res.status(404).json({ error: 'Assessment not found.' });
@@ -111,12 +110,13 @@ router.get('/assessment/:assessmentId/cost', authenticate, async (req, res, next
     const currency = req.query.currency || 'USD';
 
     // 1. Get assessment and organization to find region
+    await verifyAssessmentOwnership(assessmentId, req.user.org_id);
     const assessResult = await query(
       `SELECT a.id, o.region 
        FROM assessments a
        JOIN organizations o ON a.org_id = o.id
-       WHERE a.id = $1 AND (a.user_id = $2 OR a.org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active'))`,
-      [assessmentId, req.user.user_id]
+       WHERE a.id = $1 AND a.org_id = $2`,
+      [assessmentId, req.user.org_id]
     );
 
     if (!assessResult.rows.length) {

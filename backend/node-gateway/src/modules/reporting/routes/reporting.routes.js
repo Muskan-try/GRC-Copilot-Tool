@@ -14,7 +14,7 @@ router.get('/assessment/:id', authenticate, async (req, res, next) => {
     const { id } = req.params;
     const { format = 'json' } = req.query;
 
-    const reportData = await reportingService.generateReportData(id, req.user.user_id);
+    const reportData = await reportingService.generateReportData(id, req.user.org_id);
 
     if (format === 'pdf') {
       // PDF Generation Placeholder: In a real implementation, this would trigger 

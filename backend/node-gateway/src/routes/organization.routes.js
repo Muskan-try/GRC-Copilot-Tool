@@ -225,7 +225,7 @@ router.put('/:id', authenticate, [
              FROM org_members 
              WHERE user_id = $9 
                AND status = 'active' 
-               AND role IN ('owner', 'admin', 'org_admin', 'team_lead')
+               AND role IN ('owner', 'admin', 'org_admin', 'team_member')
            )
          )
        RETURNING *`,

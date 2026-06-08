@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const { query } = require('../config/postgres');
 const { authenticate } = require('../middleware/auth');
 const logger = require('../config/logger');
+const audit = require('../services/audit.service');
 
 const router = express.Router();
 
@@ -44,9 +45,25 @@ const FormData = require('form-data');
 
 // Helper for role checks
 const checkPolicyRole = (req, res, next) => {
-  const allowed = ['team_lead', 'org_admin', 'admin', 'owner'];
+  const allowed = ['member', 'lead', 'org_admin', 'admin', 'owner'];
   if (!allowed.includes(req.user.role)) {
-    return res.status(403).json({ error: 'Access denied. Policy Hub access requires Team Lead, Org Admin, or Admin privileges.' });
+    return res.status(403).json({ error: 'Access denied. Policy Hub access requires Member, Lead, Org Admin, or Admin privileges.' });
+  }
+  next();
+};
+
+const requirePolicyWrite = (req, res, next) => {
+  const allowed = ['member', 'org_admin', 'admin', 'owner'];
+  if (!allowed.includes(req.user.role)) {
+    return res.status(403).json({ error: 'Access denied. Uploading/modifying policies requires Maker (Member), Org Admin, or Admin privileges.' });
+  }
+  next();
+};
+
+const requirePolicyCheck = (req, res, next) => {
+  const allowed = ['lead', 'org_admin', 'admin', 'owner'];
+  if (!allowed.includes(req.user.role)) {
+    return res.status(403).json({ error: 'Access denied. Approving/rejecting policies requires Checker (Lead), Org Admin, or Admin privileges.' });
   }
   next();
 };
@@ -55,7 +72,7 @@ const checkPolicyRole = (req, res, next) => {
 router.post(
   '/upload',
   authenticate,
-  checkPolicyRole,
+  requirePolicyWrite,
   (req, res, next) => {
     upload.single('file')(req, res, (err) => {
       if (err instanceof multer.MulterError) {
@@ -116,7 +133,7 @@ router.post(
 
       const analysisReport = fastapiResponse.data;
       const fileUrl = req.file.path; // Store local upload path
-      const status = analysisReport.gaps.length === 0 ? 'compliant' : 'gaps_found';
+      const status = (analysisReport.gaps && analysisReport.gaps.length > 0) ? 'gaps_found' : 'compliant';
       const complianceScore = parseFloat(analysisReport.score);
 
       // 5. Database Insertion
@@ -144,6 +161,42 @@ router.post(
       res.status(status).json({
         error: status >= 500 ? 'Policy analysis service unavailable. Please try again later.' : 'Policy analysis failed.',
       });
+    }
+  }
+);
+
+// GET /api/policies/pending-approvals
+router.get(
+  '/pending-approvals',
+  authenticate,
+  requirePolicyCheck,
+  async (req, res, next) => {
+    try {
+      let orgId = req.user.org_id;
+      if (req.user.role === 'admin' && (req.query.org_id || req.body.org_id)) {
+        orgId = req.query.org_id || req.body.org_id;
+      }
+
+      if (!orgId) {
+        return res.status(400).json({ error: 'Organization ID (org_id) is required.' });
+      }
+
+      const fetchResult = await query(
+        `SELECT id, org_id, policy_name, policy_type, file_url, status, compliance_score, ai_analysis_report, created_at, updated_at
+         FROM policies
+         WHERE org_id = $1 AND status = 'PENDING_LEAD_SIGN_OFF'
+         ORDER BY created_at DESC`,
+        [orgId]
+      );
+
+      res.json({
+        org_id: orgId,
+        count: fetchResult.rowCount,
+        policies: fetchResult.rows
+      });
+    } catch (err) {
+      logger.error('Error in GET /api/policies/pending-approvals:', err);
+      next(err);
     }
   }
 );
@@ -188,6 +241,156 @@ router.get(
 
     } catch (err) {
       logger.error('Error in GET /api/policies:', err);
+      next(err);
+    }
+  }
+);
+
+// POST /api/policies/:policyId/approve
+router.post(
+  '/:policyId/approve',
+  authenticate,
+  requirePolicyCheck,
+  async (req, res, next) => {
+    try {
+      const { policyId } = req.params;
+
+      // Fetch policy to verify ownership and check gaps
+      const policyResult = await query(
+        'SELECT org_id, status, ai_analysis_report FROM policies WHERE id = $1',
+        [policyId]
+      );
+
+      if (!policyResult.rows.length) {
+        return res.status(404).json({ error: 'Policy not found.' });
+      }
+
+      const policy = policyResult.rows[0];
+
+      // Enforce strict tenant matching to prevent cross-tenant IDOR tampering
+      if (req.user.role !== 'admin' && policy.org_id !== req.user.org_id) {
+        return res.status(403).json({ error: 'Access denied. Ownership mismatch.' });
+      }
+
+      // Update status directly to APPROVED_PRODUCTION
+      const updateResult = await query(
+        `UPDATE policies
+         SET status = 'APPROVED_PRODUCTION', updated_at = NOW()
+         WHERE id = $1
+         RETURNING *`,
+        [policyId]
+      );
+
+      logger.info(`Policy approved by Checker ${req.user.user_id}: ${policyId}`);
+      audit.log(req.user.user_id, 'policy.approve', 'policy', policyId, { org_id: policy.org_id }, req).catch(() => {});
+
+      res.json({
+        message: 'Policy approved successfully.',
+        policy: updateResult.rows[0]
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// POST /api/policies/:policyId/reject
+router.post(
+  '/:policyId/reject',
+  authenticate,
+  requirePolicyCheck,
+  async (req, res, next) => {
+    try {
+      const { policyId } = req.params;
+
+      // Fetch policy to verify ownership
+      const policyResult = await query(
+        'SELECT org_id, status FROM policies WHERE id = $1',
+        [policyId]
+      );
+
+      if (!policyResult.rows.length) {
+        return res.status(404).json({ error: 'Policy not found.' });
+      }
+
+      const policy = policyResult.rows[0];
+
+      // Enforce strict tenant matching to prevent cross-tenant IDOR tampering
+      if (req.user.role !== 'admin' && policy.org_id !== req.user.org_id) {
+        return res.status(403).json({ error: 'Access denied. Ownership mismatch.' });
+      }
+
+      // Update status to gaps_found
+      const updateResult = await query(
+        `UPDATE policies
+         SET status = 'gaps_found', updated_at = NOW()
+         WHERE id = $1
+         RETURNING *`,
+        [policyId]
+      );
+
+      logger.info(`Policy rejected by Checker ${req.user.user_id}: ${policyId}`);
+      audit.log(req.user.user_id, 'policy.reject', 'policy', policyId, { org_id: policy.org_id }, req).catch(() => {});
+
+      res.json({
+        message: 'Policy marked as rejected (gaps found).',
+        policy: updateResult.rows[0]
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// POST /api/policies/:policyId/auto-fix
+router.post(
+  '/:policyId/auto-fix',
+  authenticate,
+  requirePolicyWrite,
+  async (req, res, next) => {
+    try {
+      const { policyId } = req.params;
+      const { score, gaps, recommendations } = req.body;
+
+      // Fetch policy to verify ownership
+      const policyResult = await query(
+        'SELECT org_id FROM policies WHERE id = $1',
+        [policyId]
+      );
+
+      if (!policyResult.rows.length) {
+        return res.status(404).json({ error: 'Policy not found.' });
+      }
+
+      const policy = policyResult.rows[0];
+
+      // Enforce strict tenant matching
+      if (req.user.role !== 'admin' && policy.org_id !== req.user.org_id) {
+        return res.status(403).json({ error: 'Access denied. Ownership mismatch.' });
+      }
+
+      const aiReport = {
+        score: score,
+        gaps: gaps,
+        recommendations: recommendations
+      };
+
+      const updateResult = await query(
+        `UPDATE policies
+         SET compliance_score = $1, ai_analysis_report = $2, status = 'PENDING_LEAD_SIGN_OFF', updated_at = NOW()
+         WHERE id = $3
+         RETURNING *`,
+        [parseFloat(score), JSON.stringify(aiReport), policyId]
+      );
+
+      logger.info(`Policy ${policyId} auto-fixed by Maker ${req.user.user_id} and marked as pending`);
+      audit.log(req.user.user_id, 'policy.autofix', 'policy', policyId, { org_id: policy.org_id }, req).catch(() => {});
+
+      res.json({
+        message: 'Policy auto-fixed successfully and sent to Lead for approval.',
+        policy: updateResult.rows[0]
+      });
+    } catch (err) {
       next(err);
     }
   }

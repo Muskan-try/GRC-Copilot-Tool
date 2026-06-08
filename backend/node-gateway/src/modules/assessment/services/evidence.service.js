@@ -1,4 +1,4 @@
-const { query } = require('../../../config/postgres');
+const { query, verifyAssessmentOwnership } = require('../../../config/postgres');
 const logger = require('../../../config/logger');
 const { EvidenceFile, AssessmentResponse } = require('../../../config/mongo');
 
@@ -11,16 +11,19 @@ class EvidenceService {
    * Store evidence file metadata.
    * @param {string} assessmentId
    * @param {string} userId
+   * @param {string} orgId
    * @param {object} file - Multer file object
    * @param {string} questionId - Optional
    */
-  async addEvidence(assessmentId, userId, file, questionId = null) {
+  async addEvidence(assessmentId, userId, orgId, file, questionId = null) {
     logger.info(`Adding evidence for assessment ${assessmentId}, file: ${file.originalname}`);
 
     // 1. Verify assessment ownership
+    await verifyAssessmentOwnership(assessmentId, orgId);
+
     const assessResult = await query(
-      'SELECT a.id FROM assessments a JOIN org_members om ON om.org_id = a.org_id WHERE a.id = $1 AND om.user_id = $2 AND om.status = \'active\'',
-      [assessmentId, userId]
+      'SELECT id FROM assessments WHERE id = $1 AND org_id = $2',
+      [assessmentId, orgId]
     );
     if (assessResult.rows.length === 0) {
       throw new Error('Assessment not found or unauthorized');
@@ -87,11 +90,13 @@ class EvidenceService {
   /**
    * Get all evidence for an assessment (MongoDB primary, PG fallback).
    */
-  async getEvidenceForAssessment(assessmentId, userId) {
-    // Try MongoDB first
+  async getEvidenceForAssessment(assessmentId, orgId) {
+    // Verify assessment ownership
+    await verifyAssessmentOwnership(assessmentId, orgId);
+
+    // Try MongoDB first (remove user_id filter to allow org-wide access)
     const mongoEvidence = await EvidenceFile.find({
       assessment_id: assessmentId,
-      user_id: userId,
     }).sort({ uploaded_at: -1 }).lean();
 
     if (mongoEvidence && mongoEvidence.length > 0) {
@@ -111,8 +116,8 @@ class EvidenceService {
       `SELECT ef.id, ef.original_name, ef.question_id, ef.file_size, ef.mime_type, ef.uploaded_at, ef.file_path
        FROM evidence_files ef
        JOIN assessments a ON ef.assessment_id = a.id
-       WHERE a.id = $1 AND a.org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active')`,
-      [assessmentId, userId]
+       WHERE a.id = $1 AND a.org_id = $2`,
+      [assessmentId, orgId]
     );
     return result.rows;
   }

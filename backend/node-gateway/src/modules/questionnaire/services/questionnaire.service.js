@@ -1,4 +1,4 @@
-const { query } = require('../../../config/postgres');
+const { query, verifyAssessmentOwnership } = require('../../../config/postgres');
 const logger = require('../../../config/logger');
 const scoringService = require('../../scoring/services/scoring.service');
 const mappingService = require('../../mapping/services/mapping.service');
@@ -69,18 +69,17 @@ class QuestionnaireService {
    * @param {string} assessmentId - UUID of the assessment.
    * @param {string} userId - UUID of the user.
    */
-  async getQuestionsForAssessment(assessmentId, userId) {
-    logger.info(`Fetching questions from MongoDB for assessment: ${assessmentId} (user: ${userId})`);
+  async getQuestionsForAssessment(assessmentId, orgId) {
+    logger.info(`Fetching questions from MongoDB for assessment: ${assessmentId} (org: ${orgId})`);
 
     // 1. Get assessment metadata and verify org access
+    await verifyAssessmentOwnership(assessmentId, orgId);
+
     const assessmentResult = await query(
       `SELECT a.analysis_depth, a.assessment_type, a.org_id, a.user_id
        FROM assessments a
-       WHERE a.id = $1 AND (
-         a.org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active')
-         OR a.org_id IN (SELECT id FROM organizations WHERE user_id = $2)
-       )`,
-      [assessmentId, userId]
+       WHERE a.id = $1 AND a.org_id = $2`,
+      [assessmentId, orgId]
     );
     if (assessmentResult.rows.length === 0) throw new Error('Assessment not found or unauthorized.');
 
@@ -330,24 +329,14 @@ class QuestionnaireService {
   /**
     * Save assessment response with dual-write: MongoDB (primary) + PostgreSQL (fallback/compat).
     */
-  async saveResponse(assessmentId, userId, questionId, responseData) {
+  async saveResponse(assessmentId, userId, orgId, questionId, responseData) {
     logger.info(`Saving dual-write response for assessment ${assessmentId}, question ${questionId}`);
 
+    await verifyAssessmentOwnership(assessmentId, orgId);
+
     const assessResult = await query(
-      `SELECT id, assessment_type FROM assessments 
-       WHERE id = $1 
-         AND (
-           user_id = $2 
-           OR (SELECT role FROM users WHERE id = $2) = 'admin'
-           OR org_id IN (
-             SELECT org_id 
-             FROM org_members 
-             WHERE user_id = $2 
-               AND status = 'active' 
-               AND role IN ('owner', 'admin', 'org_admin', 'team_lead')
-           )
-         )`,
-      [assessmentId, userId]
+      'SELECT id, assessment_type FROM assessments WHERE id = $1 AND org_id = $2',
+      [assessmentId, orgId]
     );
     if (assessResult.rows.length === 0) throw new Error('Unauthorized');
     const assessmentType = assessResult.rows[0].assessment_type || 'compliance_assessment';
@@ -457,7 +446,8 @@ class QuestionnaireService {
   /**
     * Get latest responses for an assessment (from MongoDB primary).
     */
-  async getResponsesForAssessment(assessmentId) {
+  async getResponsesForAssessment(assessmentId, orgId) {
+    await verifyAssessmentOwnership(assessmentId, orgId);
     return AssessmentResponse.find({ assessment_id: assessmentId })
       .sort({ submitted_at: -1 })
       .lean();
@@ -466,7 +456,8 @@ class QuestionnaireService {
   /**
     * Get response stats for dashboard activity feed.
     */
-  async getResponseStats(assessmentId) {
+  async getResponseStats(assessmentId, orgId) {
+    await verifyAssessmentOwnership(assessmentId, orgId);
     const stats = await AssessmentResponse.aggregate([
       { $match: { assessment_id: assessmentId } },
       {

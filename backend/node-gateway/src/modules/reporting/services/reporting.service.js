@@ -16,14 +16,14 @@ class ReportingService {
   /**
    * Generate a structured JSON report for an assessment.
    */
-  async generateReportData(assessmentId, userId) {
+  async generateReportData(assessmentId, orgId) {
     logger.info(`Generating CISO-ready report data for assessment: ${assessmentId}`);
 
     const axios = require('axios');
     const FASTAPI_URL = process.env.FASTAPI_URL || 'http://localhost:8000';
 
     // 1. Gather all required data
-    const assessment = await assessmentService.getAssessment(assessmentId, userId);
+    const assessment = await assessmentService.getAssessment(assessmentId, orgId);
     if (!assessment) throw new Error('Assessment not found or unauthorized');
 
     const assessmentType = assessment.assessment_type || 'compliance_assessment';
@@ -77,7 +77,7 @@ class ReportingService {
     const financialSummary = this.calculateFinancialSummary(gapData);
 
     // 7. Get insurance readiness
-    const insuranceReadiness = await insuranceService.calculateReadiness(assessmentId, userId);
+    const insuranceReadiness = await insuranceService.calculateReadiness(assessmentId, orgId);
 
     // 8. Get evidence count from MongoDB
     const evidenceCount = await EvidenceFile.countDocuments({ assessment_id: assessmentId });
@@ -222,7 +222,7 @@ class ReportingService {
     } catch (apiErr) {
       logger.error('FastAPI report generation failed, using heuristic fallback:', apiErr.message);
 
-      const risks = await riskService.getRisksByAssessment(assessmentId, userId);
+      const risks = await riskService.getRisksByAssessment(assessmentId, orgId);
       const executiveSummary = this.generateExecutiveSummary(assessment, scoreData, risks, gapData, assessmentType);
 
       return {

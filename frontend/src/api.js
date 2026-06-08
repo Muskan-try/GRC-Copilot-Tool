@@ -340,16 +340,19 @@ export async function chatWithAI(message, history, context) {
 }
 
 // ─── Compliance Mapping Agent ──────────────────────────────────────
-export async function uploadPolicy(file) {
+export async function uploadPolicy(file, policyName, policyType, targetFramework, assessmentId) {
   const formData = new FormData();
   formData.append("file", file);
+  formData.append("policy_name", policyName);
+  formData.append("policy_type", policyType);
+  formData.append("target_framework", targetFramework);
+  if (assessmentId) formData.append("assessment_id", assessmentId);
 
-  const url = `${API_BASE}/agent/compliance/upload-policy`;
+  const url = `${API_BASE}/policies/upload`;
   const res = await fetch(url, {
     method: "POST",
     headers: { 
-      "Authorization": `Bearer ${authToken}`,
-      "X-Internal-Service": "grc-gateway" // Add this if needed by backend middleware
+      "Authorization": `Bearer ${authToken}`
     },
     body: formData,
   });
@@ -517,6 +520,31 @@ export async function deleteAssessmentV2(assessmentId) {
   return request(`/v2/assessment/${assessmentId}`, { method: 'DELETE' });
 }
 
-export async function listPolicies() {
-  return request('/policies');
+export async function listPolicies(assessmentId) {
+  const qs = assessmentId ? `?assessment_id=${assessmentId}` : '';
+  return request(`/policies${qs}`);
+}
+
+export async function listPendingPolicies() {
+  return request('/policies/pending-approvals');
+}
+
+export async function approvePolicy(policyId) {
+  return request(`/policies/${policyId}/approve`, { method: "POST" });
+}
+
+export async function rejectPolicy(policyId) {
+  return request(`/policies/${policyId}/reject`, { method: "POST" });
+}
+
+export async function listPendingFixes() {
+  return request('/responses/pending-fixes');
+}
+
+export async function approveResponse(responseId) {
+  return request(`/responses/${responseId}/approve`, { method: "POST" });
+}
+
+export async function rejectResponse(responseId) {
+  return request(`/responses/${responseId}/reject`, { method: "POST" });
 }

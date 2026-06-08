@@ -12,7 +12,7 @@ const router = express.Router();
 router.get('/assessment/:id', authenticate, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const risks = await riskService.getRisksByAssessment(id, req.user.user_id);
+    const risks = await riskService.getRisksByAssessment(id, req.user.org_id);
     audit.log(req.user.user_id, audit.AUDIT_ACTIONS.AUDIT_LOG_VIEW, 'risk', id, { count: risks?.length || 0 }, req).catch(() => {});
     res.json({ risks });
   } catch (err) {
@@ -41,7 +41,7 @@ router.patch(
       const { riskId } = req.params;
       const { status, mitigation_plan } = req.body;
       
-      const result = await riskService.updateRiskStatus(riskId, req.user.user_id, status, mitigation_plan);
+      const result = await riskService.updateRiskStatus(riskId, req.user.org_id, status, mitigation_plan);
       
       if (!result) {
         return res.status(404).json({ error: 'Risk not found or unauthorized.' });

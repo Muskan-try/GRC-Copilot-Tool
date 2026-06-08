@@ -81,7 +81,7 @@ services:
     environment:
       - PG_DSN=postgresql://grc_user:grc_secure_password_2025@postgres:5432/grc_copilot
       - MONGO_URI=mongodb://mongodb:27017/grc_copilot
-      - GROQ_API_KEY=${GROQ_API_KEY:-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}
+      - GROQ_API_KEY=${GROQ_API_KEY}
       - LLM_PROVIDER=groq
     volumes:
       - ./backend/fastapi-engine/app:/app/app

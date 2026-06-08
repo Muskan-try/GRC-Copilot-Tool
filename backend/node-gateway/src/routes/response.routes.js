@@ -77,10 +77,10 @@ router.post(
       let saved = 0;
       for (const resp of responses) {
         await query(
-          `INSERT INTO responses (assessment_id, question_id, answer_index, category, respondent_id)
-           VALUES ($1, $2, $3, $4, $5)
+          `INSERT INTO responses (assessment_id, question_id, answer_index, category, respondent_id, review_status)
+           VALUES ($1, $2, $3, $4, $5, 'submitted')
            ON CONFLICT (assessment_id, question_id)
-           DO UPDATE SET answer_index = EXCLUDED.answer_index, respondent_id = EXCLUDED.respondent_id, submitted_at = NOW()`,
+           DO UPDATE SET answer_index = EXCLUDED.answer_index, respondent_id = EXCLUDED.respondent_id, review_status = 'submitted', submitted_at = NOW()`,
           [assessment_id, resp.question_id, resp.answer_index, resp.category || null, req.user.user_id]
         );
         saved++;
@@ -220,7 +220,44 @@ router.post(
       next(err);
     }
   }
-);
+);// Helper middleware for response validation check
+const requireResponseCheck = (req, res, next) => {
+  const allowed = ['lead', 'org_admin', 'admin', 'owner'];
+  if (!allowed.includes(req.user.role)) {
+    return res.status(403).json({ error: 'Access denied. Checker (Lead) privileges required.' });
+  }
+  next();
+};
+
+// GET /api/responses/pending-fixes
+router.get('/pending-fixes', authenticate, async (req, res, next) => {
+  try {
+    const orgId = req.user.org_id;
+    if (!orgId) {
+      return res.status(400).json({ error: 'Organization ID is required.' });
+    }
+
+    // Fetch responses for assessments in user's org with 'submitted' review_status
+    const result = await query(
+      `SELECT r.id, r.assessment_id, r.question_id, r.answer_index, r.answer_text, r.category, r.submitted_at, r.review_status,
+              a.framework, u.email AS respondent_email
+       FROM responses r
+       JOIN assessments a ON a.id = r.assessment_id
+       LEFT JOIN users u ON u.id = r.respondent_id
+       WHERE a.org_id = $1 AND r.review_status = 'submitted'
+       ORDER BY r.submitted_at DESC`,
+      [orgId]
+    );
+
+    res.json({
+      org_id: orgId,
+      count: result.rowCount,
+      fixes: result.rows
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // ─── GET /api/responses/:assessmentId ─────────────────────────────────────
 router.get('/:assessmentId', authenticate, async (req, res, next) => {
@@ -287,5 +324,109 @@ router.delete('/:assessmentId/evidence/:fileId', authenticate, async (req, res, 
     next(err);
   }
 });
+
+
+
+// POST /api/responses/:responseId/approve
+router.post(
+  '/:responseId/approve',
+  authenticate,
+  requireResponseCheck,
+  async (req, res, next) => {
+    try {
+      const { responseId } = req.params;
+
+      // Fetch response to verify ownership (via assessment)
+      const respResult = await query(
+        `SELECT r.id, a.org_id, r.review_status
+         FROM responses r
+         JOIN assessments a ON a.id = r.assessment_id
+         WHERE r.id = $1`,
+        [responseId]
+      );
+
+      if (!respResult.rows.length) {
+        return res.status(404).json({ error: 'Response not found.' });
+      }
+
+      const response = respResult.rows[0];
+
+      // Enforce strict tenant matching to prevent cross-tenant IDOR tampering
+      if (req.user.role !== 'admin' && response.org_id !== req.user.org_id) {
+        return res.status(403).json({ error: 'Access denied. Ownership mismatch.' });
+      }
+
+      // Update status to approved
+      const updateResult = await query(
+        `UPDATE responses
+         SET review_status = 'approved', reviewed_by = $1, reviewed_at = NOW()
+         WHERE id = $2
+         RETURNING *`,
+        [req.user.user_id, responseId]
+      );
+
+      logger.info(`Response ${responseId} approved by Checker ${req.user.user_id}`);
+      audit.log(req.user.user_id, 'response.approve', 'response', responseId, { org_id: response.org_id }, req).catch(() => {});
+
+      res.json({
+        message: 'Response approved successfully.',
+        response: updateResult.rows[0]
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// POST /api/responses/:responseId/reject
+router.post(
+  '/:responseId/reject',
+  authenticate,
+  requireResponseCheck,
+  async (req, res, next) => {
+    try {
+      const { responseId } = req.params;
+
+      // Fetch response to verify ownership (via assessment)
+      const respResult = await query(
+        `SELECT r.id, a.org_id, r.review_status
+         FROM responses r
+         JOIN assessments a ON a.id = r.assessment_id
+         WHERE r.id = $1`,
+         [responseId]
+      );
+
+      if (!respResult.rows.length) {
+        return res.status(404).json({ error: 'Response not found.' });
+      }
+
+      const response = respResult.rows[0];
+
+      // Enforce strict tenant matching to prevent cross-tenant IDOR tampering
+      if (req.user.role !== 'admin' && response.org_id !== req.user.org_id) {
+        return res.status(403).json({ error: 'Access denied. Ownership mismatch.' });
+      }
+
+      // Update status to rejected
+      const updateResult = await query(
+        `UPDATE responses
+         SET review_status = 'rejected', reviewed_by = $1, reviewed_at = NOW()
+         WHERE id = $2
+         RETURNING *`,
+        [req.user.user_id, responseId]
+      );
+
+      logger.info(`Response ${responseId} rejected by Checker ${req.user.user_id}`);
+      audit.log(req.user.user_id, 'response.reject', 'response', responseId, { org_id: response.org_id }, req).catch(() => {});
+
+      res.json({
+        message: 'Response rejected successfully.',
+        response: updateResult.rows[0]
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 module.exports = router;

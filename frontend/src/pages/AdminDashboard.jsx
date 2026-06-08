@@ -141,7 +141,6 @@ export default function AdminDashboard() {
           <SidebarItem active={activeTab === "overview"} onClick={() => handleTabChange("overview")} icon={<Activity size={18} />} label="Dashboard" />
           <SidebarItem active={activeTab === "tables"} onClick={() => handleTabChange("tables")} icon={<Building2 size={18} />} label="Tables Basic" />
           <SidebarItem active={activeTab === "notifications"} onClick={() => handleTabChange("notifications")} icon={<AlertCircle size={18} />} label="Notifications" />
-          <SidebarItem active={activeTab === "components"} onClick={() => handleTabChange("components")} icon={<Settings size={18} />} label="Components" />
         </nav>
 
         {/* Logout Bottom */}
@@ -235,7 +234,7 @@ export default function AdminDashboard() {
                   padding: "2px 5px",
                   borderRadius: "10px",
                   lineHeight: 1
-                }}>3</span>
+                }}>{(dashboardData?.latestAuditLogs || []).length}</span>
               </div>
 
               {showMessages && (
@@ -252,26 +251,40 @@ export default function AdminDashboard() {
                   overflow: "hidden"
                 }}>
                   <div style={{ padding: "12px 16px", background: "#f8fafc", borderBottom: "1px solid #e2e8f0", fontWeight: 700, fontSize: "0.85rem", color: "#334155" }}>
-                    Recent Messages
+                    Recent Notifications
                   </div>
                   <div style={{ display: "flex", flexDirection: "column" }}>
-                    <DropdownItem 
-                      title="Failed Login Attempt" 
-                      desc="IP 192.168.1.45 failed authentication 3 times." 
-                      time="2m ago" 
-                      isNew 
-                    />
-                    <DropdownItem 
-                      title="Acme Corp Registered" 
-                      desc="New organization 'Acme Corp' added successfully." 
-                      time="1h ago" 
-                      isNew 
-                    />
-                    <DropdownItem 
-                      title="Backup Completed" 
-                      desc="Daily automated database backup finished without errors." 
-                      time="5h ago" 
-                    />
+                    {(dashboardData?.latestAuditLogs || []).length > 0 ? (
+                      (dashboardData?.latestAuditLogs || []).map((log) => {
+                        let type = "info";
+                        const actionLower = log.action.toLowerCase();
+                        if (actionLower.includes("fail") || actionLower.includes("delete") || actionLower.includes("reject")) {
+                          type = "danger";
+                        } else if (actionLower.includes("create") || actionLower.includes("success") || actionLower.includes("complete") || actionLower.includes("approve")) {
+                          type = "success";
+                        } else if (actionLower.includes("update") || actionLower.includes("edit")) {
+                          type = "warning";
+                        }
+                        
+                        const timeStr = log.created_at ? new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
+                        const actionName = log.action.replace(/_/g, ' ');
+                        
+                        return (
+                          <DropdownItem 
+                            key={log.id}
+                            title={actionName} 
+                            desc={`User: ${log.user_email || 'System'} | Resource: ${log.resource_type}`} 
+                            time={timeStr} 
+                            type={type}
+                            isNew={true}
+                          />
+                        );
+                      })
+                    ) : (
+                      <div style={{ padding: "16px", textAlign: "center", color: "#94a3b8", fontSize: "0.85rem" }}>
+                        No recent notifications.
+                      </div>
+                    )}
                   </div>
                   <div style={{ padding: "8px 16px", borderTop: "1px solid #e2e8f0", textAlign: "center", background: "#f8fafc" }}>
                     <span style={{ fontSize: "0.75rem", color: "#ef4444", fontWeight: 700, cursor: "pointer" }} onClick={() => setShowMessages(false)}>

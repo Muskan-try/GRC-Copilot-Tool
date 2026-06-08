@@ -33,7 +33,7 @@ import {
 const ComplianceAgent = () => {
   const navigate = useNavigate();
   const user = getCurrentUser();
-  const isTeamMember = user?.role === 'team_member';
+  const isTeamLead = user?.role === 'lead';
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
@@ -83,7 +83,7 @@ const ComplianceAgent = () => {
   }, [loading]);
 
   const handleFileChange = (e) => {
-    if (isTeamMember) return;
+    if (isTeamLead) return;
     setFile(e.target.files[0]);
     setResult(null);
     setError(null);
@@ -91,7 +91,7 @@ const ComplianceAgent = () => {
 
   const handleDragOver = (e) => {
     e.preventDefault();
-    if (!isTeamMember) setIsDragOver(true);
+    if (!isTeamLead) setIsDragOver(true);
   };
 
   const handleDragLeave = () => {
@@ -101,7 +101,7 @@ const ComplianceAgent = () => {
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragOver(false);
-    if (isTeamMember) return;
+    if (isTeamLead) return;
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setFile(e.dataTransfer.files[0]);
       setResult(null);
@@ -110,7 +110,7 @@ const ComplianceAgent = () => {
   };
 
   const handleRunAgent = async () => {
-    if (isTeamMember) return;
+    if (isTeamLead) return;
     if (!file) {
       setError("Please select a policy document first.");
       return;
@@ -354,21 +354,22 @@ const ComplianceAgent = () => {
                 {frameworks.map((fw) => (
                   <div 
                     key={fw.id}
-                    onClick={() => setSelectedFramework(fw.id)}
+                    onClick={() => !isTeamLead && setSelectedFramework(fw.id)}
                     style={{
                       background: selectedFramework === fw.id ? `rgba(14, 165, 233, 0.15)` : 'rgba(255,255,255,0.02)',
                       border: `1px solid ${selectedFramework === fw.id ? theme.accent : theme.border}`,
                       borderRadius: '16px',
                       padding: '16px 20px',
-                      cursor: 'pointer',
+                      cursor: isTeamLead ? 'not-allowed' : 'pointer',
                       transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '8px',
-                      boxShadow: selectedFramework === fw.id ? `0 0 20px ${theme.accentGlow}` : 'none'
+                      boxShadow: selectedFramework === fw.id ? `0 0 20px ${theme.accentGlow}` : 'none',
+                      opacity: isTeamLead ? 0.75 : 1
                     }}
-                    onMouseOver={(e) => { if (selectedFramework !== fw.id) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; }}
-                    onMouseOut={(e) => { if (selectedFramework !== fw.id) e.currentTarget.style.borderColor = theme.border; }}
+                    onMouseOver={(e) => { if (selectedFramework !== fw.id && !isTeamLead) e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'; }}
+                    onMouseOut={(e) => { if (selectedFramework !== fw.id && !isTeamLead) e.currentTarget.style.borderColor = theme.border; }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '1.1rem', fontWeight: '800', color: selectedFramework === fw.id ? theme.accent : theme.textMain }}>{fw.name}</span>
@@ -397,7 +398,7 @@ const ComplianceAgent = () => {
             {/* Choose Policy Document label (larged and premium) */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', width: '100%' }}>
               <label style={{ 
-                cursor: 'pointer', 
+                cursor: isTeamLead ? 'not-allowed' : 'pointer', 
                 padding: '24px 40px', 
                 background: file ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255,255,255,0.03)', 
                 border: `2px dashed ${file ? theme.emerald : theme.border}`,
@@ -411,14 +412,17 @@ const ComplianceAgent = () => {
                 width: '90%',
                 maxWidth: '400px',
                 textAlign: 'center',
-                boxShadow: file ? `0 0 25px ${theme.emeraldGlow}` : 'none'
+                boxShadow: file ? `0 0 25px ${theme.emeraldGlow}` : 'none',
+                opacity: isTeamLead ? 0.75 : 1
               }}
               onMouseOver={(e) => { 
+                if (isTeamLead) return;
                 e.currentTarget.style.background = file ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255,255,255,0.06)'; 
                 e.currentTarget.style.borderColor = theme.accent;
                 e.currentTarget.style.boxShadow = `0 0 25px ${theme.accentGlow}`;
               }}
               onMouseOut={(e) => { 
+                if (isTeamLead) return;
                 e.currentTarget.style.background = file ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255,255,255,0.03)'; 
                 e.currentTarget.style.borderColor = file ? theme.emerald : theme.border;
                 e.currentTarget.style.boxShadow = file ? `0 0 25px ${theme.emeraldGlow}` : 'none';
@@ -436,10 +440,11 @@ const ComplianceAgent = () => {
                   onChange={handleFileChange}
                   style={{ display: 'none' }}
                   accept=".pdf,.docx,.txt"
+                  disabled={isTeamLead}
                 />
               </label>
 
-              {file && (
+              {file && !isTeamLead && (
                 <button 
                   onClick={() => { setFile(null); setResult(null); }}
                   style={{
@@ -463,30 +468,30 @@ const ComplianceAgent = () => {
             {/* Execute Neural Audit Button below upload button */}
             <button 
               onClick={handleRunAgent}
-              disabled={loading || !file}
+              disabled={loading || !file || isTeamLead}
               style={{ 
-                background: loading || !file ? 'rgba(255,255,255,0.02)' : `linear-gradient(135deg, ${theme.accent} 0%, ${theme.purple} 100%)`, 
+                background: loading || !file || isTeamLead ? 'rgba(255,255,255,0.02)' : `linear-gradient(135deg, ${theme.accent} 0%, ${theme.purple} 100%)`, 
                 color: 'white',
-                opacity: loading || !file ? 0.4 : 1,
+                opacity: loading || !file || isTeamLead ? 0.4 : 1,
                 padding: '24px 50px',
                 borderRadius: '20px',
-                border: `1px solid ${loading || !file ? theme.border : 'transparent'}`,
+                border: `1px solid ${loading || !file || isTeamLead ? theme.border : 'transparent'}`,
                 fontWeight: '900',
                 fontSize: '1.25rem',
-                cursor: loading || !file ? 'not-allowed' : 'pointer',
+                cursor: loading || !file || isTeamLead ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '15px',
-                boxShadow: loading || !file ? 'none' : `0 0 35px ${theme.accent}55`,
+                boxShadow: loading || !file || isTeamLead ? 'none' : `0 0 35px ${theme.accent}55`,
                 transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
                 width: '90%',
                 maxWidth: '400px'
               }}
-              onMouseEnter={(e) => { if(!loading && file) e.currentTarget.style.transform = 'translateY(-4px)'; }}
-              onMouseLeave={(e) => { if(!loading && file) e.currentTarget.style.transform = 'translateY(0)'; }}
+              onMouseEnter={(e) => { if(!loading && file && !isTeamLead) e.currentTarget.style.transform = 'translateY(-4px)'; }}
+              onMouseLeave={(e) => { if(!loading && file && !isTeamLead) e.currentTarget.style.transform = 'translateY(0)'; }}
             >
               {loading ? (
                 <>
@@ -503,6 +508,23 @@ const ComplianceAgent = () => {
           </div>
         </div>
         
+        {isTeamLead && (
+          <div style={{ 
+            marginTop: '25px', 
+            padding: '16px 24px', 
+            background: `rgba(239, 68, 68, 0.1)`, 
+            border: `1px solid rgba(239, 68, 68, 0.25)`, 
+            borderRadius: '12px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '12px', 
+            color: '#ef4444' 
+          }}>
+            <Lock size={20} />
+            <span style={{ fontWeight: '700', fontSize: '0.95rem' }}>Read-Only Access: You do not have permission to upload policies or execute neural audits.</span>
+          </div>
+        )}
+
         {error && (
           <div style={{ 
             marginTop: '25px', 

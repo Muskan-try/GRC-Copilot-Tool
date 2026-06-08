@@ -10,8 +10,8 @@ import { useToast } from "../components/Toast";
 const ROLE_OPTIONS = [
   { value: "admin", label: "Super Admin", desc: "Full system control across all organizations", color: "var(--danger)" },
   { value: "org_admin", label: "Organization Admin", desc: "Manage organization settings and members", color: "var(--primary)" },
-  { value: "team_lead", label: "Team Lead", desc: "Lead assessments and review team responses", color: "var(--info)" },
-  { value: "team_member", label: "Team Member", desc: "Read-only access to compliance data", color: "var(--text-muted)" },
+  { value: "lead", label: "Team Lead", desc: "Validator for policy uploads and questionnaire fixes", color: "var(--info)" },
+  { value: "member", label: "Team Member", desc: "Select frameworks, upload policies, and answer questionnaires", color: "var(--text-muted)" },
 ];
 
 export default function TeamManagement() {
@@ -25,7 +25,7 @@ export default function TeamManagement() {
   const [pendingReviews, setPendingReviews] = useState([]);
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("team_member");
+  const [inviteRole, setInviteRole] = useState("member");
   const [loading, setLoading] = useState(true);
 
   const fetchData = useCallback(async (orgId) => {
@@ -104,7 +104,7 @@ export default function TeamManagement() {
 
   // RBAC logic
   const canManage = user?.role === "admin" || user?.role === "org_admin";
-  const isTeamMember = user?.role === "team_member";
+  const isTeamLead = user?.role === "lead";
 
   return (
     <div style={{ padding: "40px 32px", background: "var(--surface-hover)", minHeight: "100vh" }}>
@@ -112,10 +112,10 @@ export default function TeamManagement() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
           <div>
             <h1 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-main)", margin: "0 0 4px 0" }}>
-              Team Management {isTeamMember && "(Read-Only)"}
+              Team Management {isTeamLead && "(Read-Only)"}
             </h1>
             <p style={{ fontSize: "0.9rem", color: "var(--text-muted)", margin: 0 }}>
-              {isTeamMember ? "View team members and assigned roles for your organization" : "Manage team members, roles, invitations, and review workflows"}
+              {isTeamLead ? "View team members and assigned roles for your organization" : "Manage team members, roles, invitations, and review workflows"}
             </p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -129,7 +129,7 @@ export default function TeamManagement() {
         </div>
 
         {/* Pending Reviews Banner */}
-        {pendingReviews.length > 0 && !isTeamMember && (
+        {pendingReviews.length > 0 && !isTeamLead && (
           <div style={{ marginBottom: 24, padding: "16px 20px", background: "var(--primary-bg-subtle)", border: "1px solid #bfdbfe", borderRadius: 10 }}>
             <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--info)", marginBottom: 4 }}>
               📋 {pendingReviews.length} Assessment{pendingReviews.length > 1 ? 's' : ''} Pending Your Review
@@ -200,7 +200,7 @@ export default function TeamManagement() {
             {/* Pending Invitations */}
             <div className="card" style={{ padding: 24, borderRadius: 12, maxWidth: "none" }}>
               <h3 style={{ fontSize: "1rem", fontWeight: 700, color: "var(--text-main)", margin: "0 0 16px 0" }}>
-                {isTeamMember ? "Active Invitations" : "Pending Invitations"} ({invitations.length})
+                {isTeamLead ? "Active Invitations" : "Pending Invitations"} ({invitations.length})
               </h3>
               {invitations.length === 0 ? (
                 <p style={{ fontSize: "0.85rem", color: "var(--text-light)", textAlign: "center", padding: 20 }}>No pending invitations</p>

@@ -1,4 +1,4 @@
-const { query } = require('../../../config/postgres');
+const { query, verifyAssessmentOwnership } = require('../../../config/postgres');
 const logger = require('../../../config/logger');
 const scoringService = require('../../scoring/services/scoring.service');
 const riskService = require('../../risk/services/risk.service');
@@ -30,16 +30,19 @@ class DashboardService {
   /**
    * Get comprehensive dashboard data for an assessment.
    */
-  async getDashboardData(assessmentId, userId) {
+  async getDashboardData(assessmentId, orgId) {
     logger.info(`Generating dashboard data for assessment: ${assessmentId}`);
+
+    // Verify assessment ownership
+    await verifyAssessmentOwnership(assessmentId, orgId);
 
     // 1. Get Assessment Metadata
     const assessResult = await query(
       `SELECT a.*, o.name as organization_name
        FROM assessments a
        JOIN organizations o ON a.org_id = o.id
-       WHERE a.id = $1 AND a.org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active')`,
-      [assessmentId, userId]
+       WHERE a.id = $1 AND a.org_id = $2`,
+      [assessmentId, orgId]
     );
 
     if (assessResult.rows.length === 0) {
@@ -52,13 +55,13 @@ class DashboardService {
     const scores = await scoringService.calculateScore(assessmentId);
 
     // 3. Get Risk Data (Distribution & Top Risks)
-    let risks = await riskService.getRisksByAssessment(assessmentId, userId);
+    let risks = await riskService.getRisksByAssessment(assessmentId, orgId);
     
     // If no risks found, trigger identification (in case it wasn't triggered or failed)
     if (risks.length === 0) {
       logger.info(`No risks found for dashboard ${assessmentId}, triggering identification...`);
       await riskService.identifyRisks(assessmentId);
-      risks = await riskService.getRisksByAssessment(assessmentId, userId);
+      risks = await riskService.getRisksByAssessment(assessmentId, orgId);
     }
 
     const riskDistribution = {
@@ -69,7 +72,7 @@ class DashboardService {
     };
 
     // 4. Get Gap Summary
-    const gaps = await gapAnalysisService.performAnalysis(assessmentId, userId);
+    const gaps = await gapAnalysisService.performAnalysis(assessmentId, orgId);
 
     // 5. Get Trend Data (Previous assessments for the same org/framework)
     const trendResult = await query(
@@ -176,7 +179,7 @@ class DashboardService {
       evidence_stats: {
         total_files: evidenceTotal,
       },
-      insurance_readiness: await insuranceService.calculateReadiness(assessmentId, userId),
+      insurance_readiness: await insuranceService.calculateReadiness(assessmentId, orgId),
     };
   }
 }

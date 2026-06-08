@@ -347,13 +347,13 @@ export default function DashboardV2() {
   }
 
   if (error) {
-    const isTeamMember = getCurrentUser()?.role === 'team_member';
+    const isTeamLead = getCurrentUser()?.role === 'lead';
     return (
       <div className="page" style={{ background: "var(--bg-color)" }}>
         <div className="card" style={{ textAlign: "center", borderTop: "4px solid #ef4444" }}>
           <h1 style={{ color: "#ef4444", marginBottom: 16 }}>Dashboard Error</h1>
           <p style={{ color: "var(--text-muted)", marginBottom: 24 }}>{error}</p>
-          {!isTeamMember && (
+          {!isTeamLead && (
             <button className="btn btn-primary" onClick={() => navigate("/start")} style={{ marginTop: 20 }}>
               Start New Audit
             </button>
@@ -364,14 +364,14 @@ export default function DashboardV2() {
   }
 
   if (!dashboard) {
-    const isTeamMember = getCurrentUser()?.role === 'team_member';
+    const isTeamLead = getCurrentUser()?.role === 'lead';
     return (
       <div className="page" style={{ background: "var(--bg-color)" }}>
         <div className="card" style={{ textAlign: "center" }}>
           <h1>Dashboard Error</h1>
           <p>No dashboard data received.</p>
           <button className="btn btn-primary" onClick={() => navigate("/start")}>
-            {isTeamMember ? "Back to Start" : "Go to Start"}
+            {isTeamLead ? "Back to Start" : "Go to Start"}
           </button>
         </div>
       </div>
@@ -900,7 +900,7 @@ export default function DashboardV2() {
                             MISSING
                           </td>
                           <td style={{ padding: "16px", textAlign: "center" }}>
-                            {getCurrentUser()?.role === 'team_member' ? (
+                            {getCurrentUser()?.role === 'lead' ? (
                               <div 
                                 style={{ 
                                   display: "flex", 
@@ -990,7 +990,7 @@ export default function DashboardV2() {
                             PARTIAL
                           </td>
                           <td style={{ padding: "16px", textAlign: "center" }}>
-                            {getCurrentUser()?.role === 'team_member' ? (
+                            {getCurrentUser()?.role === 'lead' ? (
                               <div 
                                 style={{ 
                                   display: "flex", 

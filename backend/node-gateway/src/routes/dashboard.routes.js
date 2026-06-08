@@ -1,5 +1,5 @@
 const express = require('express');
-const { query } = require('../config/postgres');
+const { query, verifyAssessmentOwnership } = require('../config/postgres');
 const { Report } = require('../config/mongo');
 const { authenticate } = require('../middleware/auth');
 const logger = require('../config/logger');
@@ -11,12 +11,14 @@ router.get('/:assessmentId', authenticate, async (req, res, next) => {
   try {
     const { assessmentId } = req.params;
 
+    await verifyAssessmentOwnership(assessmentId, req.user.org_id);
+
     const assessResult = await query(
       `SELECT a.*, o.name AS org_name, o.industry, o.region, o.frameworks
        FROM assessments a
        JOIN organizations o ON o.id = a.org_id
-       WHERE a.id = $1 AND (a.user_id = $2 OR a.org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active'))`,
-      [assessmentId, req.user.user_id]
+       WHERE a.id = $1 AND a.org_id = $2`,
+      [assessmentId, req.user.org_id]
     );
 
     if (!assessResult.rows.length) {

@@ -1,4 +1,4 @@
-const { query } = require('../../../config/postgres');
+const { query, verifyAssessmentOwnership } = require('../../../config/postgres');
 const logger = require('../../../config/logger');
 
 const { AssessmentResponse } = require('../../../config/mongo');
@@ -150,13 +150,14 @@ class RiskService {
   /**
    * Get all risks for an assessment.
    */
-  async getRisksByAssessment(assessmentId, userId) {
+  async getRisksByAssessment(assessmentId, orgId) {
+    await verifyAssessmentOwnership(assessmentId, orgId);
     const result = await query(
       `SELECT r.*, c.control_id as control_ref, c.name as control_name
        FROM risks r
        JOIN assessments a ON r.assessment_id = a.id
        LEFT JOIN controls c ON r.control_id = c.id
-       WHERE a.id = $1 AND a.org_id IN (SELECT org_id FROM org_members WHERE user_id = $2 AND status = 'active')
+       WHERE a.id = $1 AND a.org_id = $2
        ORDER BY 
          CASE r.severity 
            WHEN 'critical' THEN 1 
@@ -164,18 +165,33 @@ class RiskService {
            WHEN 'medium' THEN 3 
            WHEN 'low' THEN 4 
          END`,
-      [assessmentId, userId]
+      [assessmentId, orgId]
     );
     return result.rows;
   }
 
-  async updateRiskStatus(riskId, userId, status, mitigationPlan = null) {
+  async updateRiskStatus(riskId, orgId, status, mitigationPlan = null) {
+    const check = await query(
+      `SELECT a.org_id FROM risks r JOIN assessments a ON r.assessment_id = a.id WHERE r.id = $1`,
+      [riskId]
+    );
+    if (check.rows.length === 0) {
+      const err = new Error('Access Denied: Security Violation');
+      err.statusCode = 403;
+      throw err;
+    }
+    if (check.rows[0].org_id !== orgId) {
+      const err = new Error('Access Denied: Security Violation');
+      err.statusCode = 403;
+      throw err;
+    }
+
     const result = await query(
       `UPDATE risks 
        SET status = $1, mitigation_plan = COALESCE($2, mitigation_plan), updated_at = NOW()
-       WHERE id = $3 AND assessment_id IN (SELECT id FROM assessments WHERE user_id = $4)
+       WHERE id = $3
        RETURNING *`,
-      [status, mitigationPlan, riskId, userId]
+      [status, mitigationPlan, riskId]
     );
     return result.rows[0];
   }

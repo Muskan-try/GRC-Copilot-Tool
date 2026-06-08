@@ -113,7 +113,7 @@ router.patch('/:id/config', authenticate, [
     if (assessment_type !== undefined) updates.assessment_type = assessment_type;
     if (status !== undefined) updates.status = status;
 
-    const result = await assessmentService.updateAssessmentConfig(id, req.user.user_id, updates);
+    const result = await assessmentService.updateAssessmentConfig(id, req.user.org_id, updates);
     audit.log(req.user.user_id, audit.AUDIT_ACTIONS.ASSESSMENT_UPDATE, 'assessment', id, { updates }, req).catch(() => {});
     res.json({ message: 'Assessment updated.', assessment: result });
   } catch (err) {
@@ -131,7 +131,7 @@ router.patch('/:id/config', authenticate, [
 router.post('/:id/complete', authenticate, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await assessmentService.completeAssessment(id, req.user.user_id);
+    const result = await assessmentService.completeAssessment(id, req.user.org_id);
     if (!result) return res.status(404).json({ error: 'Assessment not found or already complete' });
     audit.log(req.user.user_id, audit.AUDIT_ACTIONS.ASSESSMENT_COMPLETE, 'assessment', id, {}, req).catch(() => {});
     res.json(result);
@@ -147,7 +147,7 @@ router.post('/:id/complete', authenticate, async (req, res, next) => {
 router.get('/:id', authenticate, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await assessmentService.getAssessment(id, req.user.user_id);
+    const result = await assessmentService.getAssessment(id, req.user.org_id);
     
     if (!result) {
       return res.status(404).json({ error: 'Assessment not found.' });
@@ -189,7 +189,7 @@ router.post(
 
       const uploaded = [];
       for (const file of req.files) {
-        const entry = await evidenceService.addEvidence(id, req.user.user_id, file, question_id);
+        const entry = await evidenceService.addEvidence(id, req.user.user_id, req.user.org_id, file, question_id);
         uploaded.push(entry);
       }
 
@@ -218,7 +218,7 @@ router.post(
 router.get('/:id/evidence', authenticate, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const evidence = await evidenceService.getEvidenceForAssessment(id, req.user.user_id);
+    const evidence = await evidenceService.getEvidenceForAssessment(id, req.user.org_id);
     res.json({ evidence });
   } catch (err) {
     next(err);
@@ -232,7 +232,7 @@ router.get('/:id/evidence', authenticate, async (req, res, next) => {
 router.get('/:id/gaps', authenticate, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await gapAnalysisService.performAnalysis(id, req.user.user_id);
+    const result = await gapAnalysisService.performAnalysis(id, req.user.org_id);
     res.json(result);
   } catch (err) {
     if (err.message.includes('not found') || err.message.includes('unauthorized')) {
@@ -249,7 +249,7 @@ router.get('/:id/gaps', authenticate, async (req, res, next) => {
 router.get('/:id/insurance-score', authenticate, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await insuranceService.calculateReadiness(id, req.user.user_id);
+    const result = await insuranceService.calculateReadiness(id, req.user.org_id);
     res.json(result);
   } catch (err) {
     if (err.message.includes('not found') || err.message.includes('unauthorized')) {
@@ -266,7 +266,7 @@ router.get('/:id/insurance-score', authenticate, async (req, res, next) => {
 router.get('/:id/dashboard', authenticate, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await dashboardService.getDashboardData(id, req.user.user_id);
+    const result = await dashboardService.getDashboardData(id, req.user.org_id);
     res.json(result);
   } catch (err) {
     if (err.message.includes('not found') || err.message.includes('unauthorized')) {
@@ -279,7 +279,7 @@ router.get('/:id/dashboard', authenticate, async (req, res, next) => {
 // Existing scaffolding
 router.get('/:id/status', authenticate, async (req, res, next) => {
   try {
-    const result = await assessmentService.getAssessmentProgress(req.params.id);
+    const result = await assessmentService.getAssessmentProgress(req.params.id, req.user.org_id);
     if (!result) return res.status(404).json({ error: 'Assessment not found.' });
     res.json(result);
   } catch (err) {
@@ -301,7 +301,7 @@ router.post(
     try {
       const { id } = req.params;
       const { frameworks } = req.body;
-      const result = await assessmentService.addFrameworks(id, req.user.user_id, frameworks);
+      const result = await assessmentService.addFrameworks(id, req.user.org_id, frameworks);
       audit.log(req.user.user_id, audit.AUDIT_ACTIONS.ASSESSMENT_UPDATE, 'assessment', id, { added_frameworks: frameworks }, req).catch(() => {});
       res.json(result);
     } catch (err) {
@@ -320,7 +320,7 @@ router.post(
 router.delete('/:id', authenticate, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await assessmentService.deleteAssessment(id, req.user.user_id);
+    const result = await assessmentService.deleteAssessment(id, req.user.org_id);
     if (!result) return res.status(404).json({ error: 'Assessment not found or unauthorized' });
     audit.log(req.user.user_id, audit.AUDIT_ACTIONS.ASSESSMENT_DELETE || 'assessment.delete', 'assessment', id, {}, req).catch(() => {});
     res.json({ message: 'Assessment successfully deleted', assessment_id: id });

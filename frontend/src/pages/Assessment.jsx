@@ -35,7 +35,7 @@ const CLOUD_STORAGE_USAGE = ["Less", "Medium", "High"];
 export default function Assessment() {
   const navigate = useNavigate();
   const user = getCurrentUser();
-  const isTeamMember = user?.role === 'team_member';
+  const isTeamLead = user?.role === 'lead';
   const type = sessionStorage.getItem("assessmentType") || "quick";
   const isFullLike = ["full", "internal", "vendor", "risk", "gap"].includes(type);
 
@@ -51,7 +51,7 @@ export default function Assessment() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isTeamMember) return;
+    if (isTeamLead) return;
     setLoading(true);
     setError("");
     
@@ -139,7 +139,7 @@ export default function Assessment() {
               value={form.orgName}
               onChange={(e) => setForm({ ...form, orgName: e.target.value })}
               required
-              disabled={isTeamMember}
+              disabled={isTeamLead}
             />
           </div>
 
@@ -150,7 +150,7 @@ export default function Assessment() {
               value={form.industry}
               onChange={(e) => setForm({ ...form, industry: e.target.value })}
               required
-              disabled={isTeamMember}
+              disabled={isTeamLead}
             >
               <option value="">Select industry</option>
               {INDUSTRIES.map((i) => (
@@ -166,7 +166,7 @@ export default function Assessment() {
               value={form.orgSize}
               onChange={(e) => setForm({ ...form, orgSize: e.target.value })}
               required
-              disabled={isTeamMember}
+              disabled={isTeamLead}
             >
               <option value="">Select size</option>
               {SIZES.map((s) => (
@@ -182,7 +182,7 @@ export default function Assessment() {
               value={form.region}
               onChange={(e) => setForm({ ...form, region: e.target.value })}
               required
-              disabled={isTeamMember}
+              disabled={isTeamLead}
             >
               <option value="">Select region</option>
               {REGIONS.map((r) => (
@@ -199,7 +199,7 @@ export default function Assessment() {
               value={form.cloudUsage}
               onChange={(e) => setForm({ ...form, cloudUsage: e.target.value })}
               required
-              disabled={isTeamMember}
+              disabled={isTeamLead}
             >
               <option value="">Select cloud usage</option>
               {CLOUD_STORAGE_USAGE.map((c) => (
@@ -208,7 +208,7 @@ export default function Assessment() {
             </select>
           </div>
 
-          {isTeamMember ? (
+          {isTeamLead ? (
             <div style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '12px', marginTop: 24, textAlign: 'center', color: 'var(--danger)', fontSize: '0.9rem', fontWeight: 600 }}>
               Read-Only Access: You cannot modify organization settings.
             </div>

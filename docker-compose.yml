@@ -48,7 +48,7 @@ services:
       - PG_PASSWORD=grc_secure_password_2025
       - MONGO_URI=mongodb://mongodb:27017/grc_copilot
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-      - CORS_ORIGIN=http://localhost:5173,http://192.168.1.12:5174
+      - CORS_ORIGIN=http://localhost:5173,http://192.168.1.12:5174,http://192.168.1.12:5173
       - FRONTEND_URL=http://localhost:5173
       - RATE_LIMIT_WINDOW_MS=900000
       - RATE_LIMIT_MAX=10000
